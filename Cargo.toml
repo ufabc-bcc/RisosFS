@@ -1,0 +1,10 @@
+[package]
+name = "risos_fs"
+version = "0.1.0"
+authors = ["Gustavo Murayama <gmurayama@outlook.com>", "Lucas Tornai de Carvalho <lucastornai00@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+fuse = "0.3.1"
+libc = "0.2.51"
+time = "0.1.42"
