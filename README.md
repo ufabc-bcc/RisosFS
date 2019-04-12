@@ -9,12 +9,3 @@
 ## Projeto de Programação - BrisaFS
 
 Informações sobre o projeto, o enunciado, datas de entrega, avaliação em: http://professor.ufabc.edu.br/~e.francesquini/2019.q1.so/projeto
-
-
-![BrisaFS](figs/brisa.jpg "Mike Bitzenhofer (CC BY-NC-ND 2.0)")
-
-
-
-----
-
-Crédito imagem: Mike Bitzenhofer (CC BY-NC-ND 2.0)
