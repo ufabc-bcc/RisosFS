@@ -1,18 +1,32 @@
 extern crate fuse;
+mod persistence;
 
 use fuse::{Filesystem, Request, ReplyCreate, ReplyEmpty, ReplyAttr, ReplyEntry, ReplyOpen, ReplyData, ReplyDirectory, ReplyWrite};
 use std::env;
 use std::ffi::OsStr;
+use std::str;
+use crate::persistence::Disk;
 
 struct RisosFS {
-    disk: Box<[u8]>
+    disk: Disk
 }
 
 impl RisosFS {
     fn new() -> RisosFS {
-        const MEMORY_SIZE: usize = 1024 * 1024 * 1024;
-        let disk: Vec<u8> = vec![0; MEMORY_SIZE];
-        let disk = disk.into_boxed_slice();
+        let memory_size: usize = 1024 * 1024 * 1024;
+        let block_size: usize = 1024;
+
+        let mut disk = Disk::new(memory_size, block_size);
+        let block = disk.get_content_from_block(1 as usize);
+
+        let content = b"aaaaaaaa";
+        let new_block: Vec<u8> = content.to_vec();
+        let new_block = new_block.into_boxed_slice();
+
+        block.clone_from(&new_block);
+        let test = str::from_utf8(block);
+
+        println!("{}", test.unwrap());
 
         RisosFS {
             disk: disk
@@ -109,5 +123,6 @@ fn main() {
             return;
         }
     };
-    fuse::mount(fs, &mountpoint, &[]);
+
+    //fuse::mount(fs, &mountpoint, &[]);
 }
