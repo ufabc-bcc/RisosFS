@@ -1,6 +1,6 @@
 # RisosFS
 
-Sistema de Arquivos desenvolvido em [Rust](https://w]ww.rust-lang.org/) para a disciplina de Sistemas Operacionais da Universidade Federal do ABC, ministrada pelo professor [Emilio Francesquini](http://professor.ufabc.edu.br/~e.francesquini/) e [Fernando Teubl](http://professor.ufabc.edu.br/~fernando.teubl/) no 1º quadrimestre de 2019.
+Sistema de Arquivos desenvolvido em [Rust](https://www.rust-lang.org/) para a disciplina de Sistemas Operacionais da Universidade Federal do ABC, ministrada pelo professor [Emilio Francesquini](http://professor.ufabc.edu.br/~e.francesquini/) e [Fernando Teubl](http://professor.ufabc.edu.br/~fernando.teubl/) no 1º quadrimestre de 2019.
 
 ## Objetivo
 
