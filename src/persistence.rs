@@ -33,10 +33,22 @@ impl Disk {
         }
     }
 
-    pub fn get_content_from_block(&mut self, block_index: usize) -> &mut Box<[u8]> {
-        match &mut self.memory_blocks[block_index] {
+    pub fn get_content_from_block(&self, block_index: usize) -> &Box<[u8]> {
+        match &self.memory_blocks[block_index] {
             MemoryBlock::Data(data) => data,
             MemoryBlock::InodeTable(_) => { panic!("Can not return data from memory allocation specified") }
         }
     }
+
+    pub fn write_content(&mut self, block_index: usize, content: &str) {
+        match &mut self.memory_blocks[block_index] {
+            MemoryBlock::Data(_) => {
+                let content: Box<[u8]> = content.as_bytes().to_vec().into_boxed_slice();
+                let content = MemoryBlock::Data(content);
+                self.memory_blocks[block_index] = content;
+            },
+            MemoryBlock::InodeTable(_) => { panic!("Can not return data from memory allocation specified") }
+        }
+    }
+
 }
