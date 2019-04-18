@@ -1,11 +1,13 @@
 extern crate fuse;
 mod persistence;
 
-use fuse::{Filesystem, Request, ReplyCreate, ReplyEmpty, ReplyAttr, ReplyEntry, ReplyOpen, ReplyData, ReplyDirectory, ReplyWrite};
+use fuse::{Filesystem, Request, ReplyCreate, ReplyEmpty, ReplyAttr, ReplyEntry, ReplyOpen, ReplyData, ReplyDirectory, ReplyWrite, FileType, FileAttr};
+use libc::{ENOSYS, ENOENT};
+use time::Timespec;
 use std::env;
 use std::ffi::OsStr;
-use std::str;
-use crate::persistence::Disk;
+use std::path::Path;
+use crate::persistence::{Disk, Inode};
 
 struct RisosFS {
     disk: Disk
@@ -13,26 +15,37 @@ struct RisosFS {
 
 impl RisosFS {
     fn new() -> RisosFS {
-        let memory_size: usize = 1024 * 1024 * 1024;
+        let memory_size: usize = 1024 * 1024 * 10;
         let block_size: usize = 1024;
 
-        let mut disk = Disk::new(memory_size, block_size);
-
-        let content = "Teste teste testE";
-        disk.write_content(3usize, &content);
-        
-        let block = disk.get_content_from_block(3usize);
-        let test = str::from_utf8(block);
-
-        println!("{}", test.unwrap());
-
         RisosFS {
-            disk: disk
+            disk: Disk::new(memory_size, block_size)
         }
     }
 }
 
 impl Filesystem for RisosFS {
+    fn lookup(
+        &mut self, 
+        _req: &Request, 
+        _parent: u64, 
+        name: &OsStr, 
+        reply: ReplyEntry
+    ) {
+        let file_name = name.to_str().unwrap();
+
+        let inode: &Inode = match self.disk.get_inode_table().get(file_name) {
+            Some(inode) => inode,
+            None => {
+                reply.error(ENOENT);
+                return;
+            },
+        };
+
+        let ttl = Timespec::new(1, 0);
+        reply.entry(&ttl, &inode.attributes, 0);
+    }
+
     fn create(
         &mut self, 
         _req: &Request, 
@@ -55,9 +68,35 @@ impl Filesystem for RisosFS {
     fn getattr(
         &mut self,
         _req: &Request,
-        _ino: u64,
+        ino: u64,
         reply: ReplyAttr
-    ) { }
+    ) {
+        let ts = Timespec::new(0, 0);
+
+        let attr = FileAttr {
+            ino: 1,
+            size: 0,
+            blocks: 0,
+            atime: ts,
+            mtime: ts,
+            ctime: ts,
+            crtime: ts,
+            kind: FileType::Directory,
+            perm: 0o755,
+            nlink: 0,
+            uid: 0,
+            gid: 0,
+            rdev: 0,
+            flags: 0,
+        };
+
+        let ttl = Timespec::new(1, 0);
+        if ino == 1 {
+            reply.attr(&ttl, &attr);
+        } else {
+            reply.error(ENOSYS);
+        }
+    }
 
     fn mknod(
         &mut self, 
@@ -85,16 +124,28 @@ impl Filesystem for RisosFS {
         _offset: i64, 
         _size: u32, 
         reply: ReplyData
-    ) { }
+    ) { println!("fn read"); }
 
     fn readdir(
         &mut self, 
         _req: &Request, 
-        _ino: u64, 
+        ino: u64, 
         _fh: u64, 
-        _offset: i64, 
-        reply: ReplyDirectory
-    ) { }
+        offset: i64, 
+        mut reply: ReplyDirectory
+    ) {
+        if ino == 1 {
+            if offset == 0 {
+                reply.add(1, 0, FileType::Directory, &Path::new("."));
+                reply.add(1, 1, FileType::Directory, &Path::new(".."));
+            }
+            reply.ok();
+        } else {
+            reply.error(ENOSYS);
+        }
+        
+        // TODO: pesquisa de arquivos na tabela
+    }
 
     fn write(
         &mut self, 
@@ -122,5 +173,7 @@ fn main() {
         }
     };
 
-    //fuse::mount(fs, &mountpoint, &[]);
+    fuse::mount(fs, &mountpoint, &[]).unwrap();
+    
+    println!("RisosFS started!");
 }
