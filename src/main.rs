@@ -17,13 +17,11 @@ impl RisosFS {
         let block_size: usize = 1024;
 
         let mut disk = Disk::new(memory_size, block_size);
-        let block = disk.get_content_from_block(1 as usize);
 
-        let content = b"aaaaaaaa";
-        let new_block: Vec<u8> = content.to_vec();
-        let new_block = new_block.into_boxed_slice();
-
-        block.clone_from(&new_block);
+        let content = "Teste teste testE";
+        disk.write_content(3usize, &content);
+        
+        let block = disk.get_content_from_block(3usize);
         let test = str::from_utf8(block);
 
         println!("{}", test.unwrap());
