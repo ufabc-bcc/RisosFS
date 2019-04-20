@@ -14,7 +14,7 @@ pub struct Inode {
 }
 
 pub enum MemoryBlock {
-    InodeTable(HashMap<String, Inode>),
+    InodeTable(HashMap<u64, Inode>),
     Data(Box<[u8]>)
 }
 
@@ -40,7 +40,7 @@ impl Disk {
         }
     }
 
-    pub fn get_inode_table(&mut self) -> &mut HashMap<String, Inode> {
+    pub fn get_inode_table(&mut self) -> &mut HashMap<u64, Inode> {
         match &mut self.memory_blocks[0] {
             MemoryBlock::Data(_) => { panic!("Can not return data from memory allocation specified") },
             MemoryBlock::InodeTable(inode_table) => inode_table
@@ -48,10 +48,8 @@ impl Disk {
     }
 
     pub fn get_content(&self, block_index: usize) -> &str {
-        match &self.memory_blocks[block_index] {
-            MemoryBlock::Data(data) => str::from_utf8(data).unwrap(),
-            MemoryBlock::InodeTable(_) => { panic!("Can not return data from memory allocation specified") }
-        }
+        let data = Disk::get_content_as_bytes(self, block_index);
+        str::from_utf8(data).unwrap()
     }
 
     pub fn get_content_as_bytes(&self, block_index: usize) -> &[u8] {

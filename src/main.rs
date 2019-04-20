@@ -34,16 +34,16 @@ impl Filesystem for RisosFS {
     ) {
         let file_name = name.to_str().unwrap();
 
-        let inode: &Inode = match self.disk.get_inode_table().get(file_name) {
-            Some(inode) => inode,
-            None => {
-                reply.error(ENOENT);
-                return;
-            },
-        };
+        let hashmap_item = self.disk.get_inode_table().iter()
+            .find(|(_, inode)| inode.path == file_name);
 
-        let ttl = Timespec::new(1, 0);
-        reply.entry(&ttl, &inode.attributes, 0);
+        match hashmap_item {
+            Some ((_, inode)) => {
+                let ttl = Timespec::new(1, 0);
+                reply.entry(&ttl, &inode.attributes, 0);
+            }
+            None => reply.error(ENOSYS)
+        }
     }
 
     fn create(
