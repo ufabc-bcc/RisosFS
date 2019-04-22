@@ -13,12 +13,17 @@ pub struct Inode {
     pub attributes: FileAttr
 }
 
+/// Enumerate de MemoryBlock. Aceita dois tipos: um `HashMap<u64, Inode>` e será representado como uma estrutura de `InodeTable`, 
+/// ou então um `Box<[u8]>`, que será representado como uma estrutura de `Data`
 pub enum MemoryBlock {
     InodeTable(HashMap<u64, Inode>),
     Data(Box<[u8]>)
 }
 
 impl Disk {
+
+    /// Inicializa um disco virtual com o tamanho total especificado em `memory_size_in_bytes` e com cada bloco contendo um tamanho fixo definido em `block_size`.
+    /// O número de blocos alocados é definido pela expressão `memory_size_in_bytes / block_size`.
     pub fn new(
         memory_size_in_bytes: usize,
         block_size: usize
@@ -26,6 +31,7 @@ impl Disk {
         let block_quantity: usize = memory_size_in_bytes / block_size;
         let mut memory_blocks: Vec<MemoryBlock> = Vec::with_capacity(block_quantity);
 
+        // O primeiro índice do memory_block é dedicado para a tabela (HashMap) de Inode
         memory_blocks.push(MemoryBlock::InodeTable(HashMap::new()));
 
         for _ in 1..block_quantity - 1 {
@@ -47,10 +53,21 @@ impl Disk {
         }
     }
 
+    /// Recupera o conteúdo de um bloco de memória convertido para `str`
+
     pub fn get_content(&self, block_index: usize) -> &str {
         let data = Disk::get_content_as_bytes(self, block_index);
         str::from_utf8(data).unwrap()
     }
+
+    /// Recupera um array de bytes borrowed de um bloco especificado.
+    ///
+    /// # Exemplos
+    ///
+    /// ```
+    /// let disk = Disk::new(args);
+    /// let content: [u8] = disk.get_content_as_bytes(1);
+    /// ```
 
     pub fn get_content_as_bytes(&self, block_index: usize) -> &[u8] {
         match &self.memory_blocks[block_index] {
@@ -59,14 +76,33 @@ impl Disk {
         }
     }
 
+    /// Escreve um conteúdo em string em um bloco de memória
+
     pub fn write_content(&mut self, block_index: usize, content: &str) {
+        let content: Box<[u8]> = Box::from(content.as_bytes());
+        self.write_content_as_bytes(block_index, &content);
+    }
+
+    /// Escreve dados em bytes em um bloco de memória
+    ///
+    ///  # Exemplos
+    /// 
+    /// ```
+    /// let content: Box<[u8]> = Box::from(content.as_bytes());
+    /// let disk: Disk = Disk::new(1024 * 1024, 1024);
+    /// disk.write_content_as_bytes(1, &content);
+    /// ```
+    /// 
+    /// Somente é gravado se for um local de memória válido
+    pub fn write_content_as_bytes(&mut self, block_index: usize, content: &Box<[u8]>) {
         match &mut self.memory_blocks[block_index] {
             MemoryBlock::Data(_) => {
-                let content: Box<[u8]> = content.as_bytes().to_vec().into_boxed_slice();
+                let content = content.clone(); // TODO:  verificar se há método melhor para gravar conteúdo
                 let content = MemoryBlock::Data(content);
                 self.memory_blocks[block_index] = content;
             },
             MemoryBlock::InodeTable(_) => { panic!("Can not return data from memory allocation specified") }
         }
     }
+
 }
