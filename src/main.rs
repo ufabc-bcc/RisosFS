@@ -39,11 +39,11 @@ impl Filesystem for RisosFS {
 
         // Procura pelo `path` do arquivo na tabela de inode
         let hashmap_item = self.disk.get_inode_table().iter()
-            .find(|(_, inode)| inode.path == file_name);
+            .find(|inode| inode.path == file_name);
 
         match hashmap_item {
             // Se houver um item com o `path`, então ele dá um `reply` com os atributos do arquivo
-            Some ((_, inode)) => {
+            Some (inode) => {
                 let ttl = Timespec::new(1, 0);
                 reply.entry(&ttl, &inode.attributes, 0);
             }

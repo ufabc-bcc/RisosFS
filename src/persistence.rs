@@ -1,6 +1,7 @@
 use fuse::{FileAttr};
 use std::collections::HashMap;
 use std::str;
+use std::mem;
 
 pub struct Disk {
     memory_blocks: Box<[MemoryBlock]>,
@@ -13,10 +14,10 @@ pub struct Inode {
     pub attributes: FileAttr
 }
 
-/// Enumerate de MemoryBlock. Aceita dois tipos: um `HashMap<u64, Inode>` e será representado como uma estrutura de `InodeTable`, 
+/// Enumerate de MemoryBlock. Aceita dois tipos: um `Vec<Inode>` e será representado como uma estrutura de `InodeTable`, 
 /// ou então um `Box<[u8]>`, que será representado como uma estrutura de `Data`
 pub enum MemoryBlock {
-    InodeTable(HashMap<u64, Inode>),
+    InodeTable(Vec<Inode>),
     Data(Box<[u8]>)
 }
 
@@ -31,8 +32,11 @@ impl Disk {
         let block_quantity: usize = memory_size_in_bytes / block_size;
         let mut memory_blocks: Vec<MemoryBlock> = Vec::with_capacity(block_quantity);
 
+        let max_files = block_size / mem::size_of::<Inode>();
+        let inode_table: Vec<Inode> = Vec::with_capacity(max_files);
+
         // O primeiro índice do memory_block é dedicado para a tabela (HashMap) de Inode
-        memory_blocks.push(MemoryBlock::InodeTable(HashMap::new()));
+        memory_blocks.push(MemoryBlock::InodeTable(inode_table));
 
         for _ in 1..block_quantity - 1 {
             let data: Vec<u8> = Vec::with_capacity(block_size);
@@ -46,7 +50,7 @@ impl Disk {
         }
     }
 
-    pub fn get_inode_table(&mut self) -> &mut HashMap<u64, Inode> {
+    pub fn get_inode_table(&mut self) -> &mut Vec<Inode> {
         match &mut self.memory_blocks[0] {
             MemoryBlock::Data(_) => { panic!("Can not return data from memory allocation specified") },
             MemoryBlock::InodeTable(inode_table) => inode_table
@@ -56,7 +60,7 @@ impl Disk {
     /// Recupera o conteúdo de um bloco de memória convertido para `str`
 
     pub fn get_content(&self, block_index: usize) -> &str {
-        let data = Disk::get_content_as_bytes(self, block_index);
+        let data = self.get_content_as_bytes(block_index);
         str::from_utf8(data).unwrap()
     }
 
