@@ -23,8 +23,9 @@ struct SuperBlock {
 
 impl SuperBlock {
     fn new(block_size: usize) -> Self {
+        let inode_table : Vec<Inode> = Vec::with_capacity(block_size / size_of::<Inode>);
         SuperBlock {
-            inode_table: Vec::with_capacity(block_size / size_of::<Inode>)
+            inode_table
         }
     }
 }
