@@ -9,6 +9,11 @@ use std::ffi::OsStr;
 use std::path::Path;
 use crate::persistence::{Disk, Inode};
 
+/// Constantes contendo o tamanho da memória a ser utilizada no FS
+/// e o tamanho do bloco
+const MEMORY_SIZE: usize = 1024 * 1024 * 10;
+const BLOCK_SIZE: usize = 1024;
+
 struct RisosFS {
     disk: Disk
 }
@@ -16,12 +21,9 @@ struct RisosFS {
 impl RisosFS {
     /// Inicializa o FS com o tamanho especificado em `memory_size` com blocos de memória de tamanho
     /// `block_size`.
-    fn new() -> RisosFS {
-        let memory_size: usize = 1024 * 1024 * 10;
-        let block_size: usize = 1024;
-
+    fn new() -> Self {
         RisosFS {
-            disk: Disk::new(memory_size, block_size)
+            disk: Disk::new(MEMORY_SIZE, BLOCK_SIZE)
         }
     }
 }

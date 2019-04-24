@@ -2,8 +2,10 @@ use fuse::{FileAttr};
 use std::collections::HashMap;
 use std::str;
 use std::mem;
+use std::mem::size_of;
 
 pub struct Disk {
+    super_block: SuperBlock,
     memory_blocks: Box<[MemoryBlock]>,
     block_size: usize
 }
@@ -14,11 +16,21 @@ pub struct Inode {
     pub attributes: FileAttr
 }
 
-/// Enumerate de MemoryBlock. Aceita dois tipos: um `Vec<Inode>` e será representado como uma estrutura de `InodeTable`, 
-/// ou então um `Box<[u8]>`, que será representado como uma estrutura de `Data`
-pub enum MemoryBlock {
-    InodeTable(Vec<Inode>),
-    Data(Box<[u8]>)
+/// Struct que representa o superbloco, um vetor de Inodes
+struct SuperBlock {
+    inode_table: Vec<Inode>
+}
+
+impl SuperBlock {
+    fn new(block_size: usize) -> Self {
+        SuperBlock {
+            inode_table: Vec::with_capacity(block_size / size_of::<Inode>)
+        }
+    }
+}
+
+struct MemoryBlock {
+    /// TODO: data: Precisamos achar um jeito de alocar exatamente MAX_SIZE de bites pra um bloco
 }
 
 impl Disk {
@@ -32,12 +44,6 @@ impl Disk {
         let block_quantity: usize = memory_size_in_bytes / block_size;
         let mut memory_blocks: Vec<MemoryBlock> = Vec::with_capacity(block_quantity);
 
-        let max_files = block_size / mem::size_of::<Inode>();
-        let inode_table: Vec<Inode> = Vec::with_capacity(max_files);
-
-        // O primeiro índice do memory_block é dedicado para a tabela (HashMap) de Inode
-        memory_blocks.push(MemoryBlock::InodeTable(inode_table));
-
         for _ in 1..block_quantity - 1 {
             let data: Vec<u8> = Vec::with_capacity(block_size);
             let data: Box<[u8]> = data.into_boxed_slice();
@@ -45,15 +51,9 @@ impl Disk {
         }
 
         Disk {
+            super_block: SuperBlock::new(block_size),
             memory_blocks: memory_blocks.into_boxed_slice(),
-            block_size: block_size
-        }
-    }
-
-    pub fn get_inode_table(&mut self) -> &mut Vec<Inode> {
-        match &mut self.memory_blocks[0] {
-            MemoryBlock::Data(_) => { panic!("Can not return data from memory allocation specified") },
-            MemoryBlock::InodeTable(inode_table) => inode_table
+            block_size
         }
     }
 
@@ -73,10 +73,8 @@ impl Disk {
     /// let content: [u8] = disk.get_content_as_bytes(1);
     /// ```
 
-    pub fn get_content_as_bytes(&self, block_index: usize) -> &[u8] {
-        match &self.memory_blocks[block_index] {
-            MemoryBlock::Data(data) => data,
-            MemoryBlock::InodeTable(_) => { panic!("Can not return data from memory allocation specified") }
+    pub fn get_content_as_bytes(&self, block_index: usize) -> &[usize] {
+            /// TODO: reimplementar isso depois que implementarmos o block
         }
     }
 
