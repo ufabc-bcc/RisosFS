@@ -4,6 +4,7 @@ mod persistence;
 use fuse::{Filesystem, Request, ReplyCreate, ReplyEmpty, ReplyAttr, ReplyEntry, ReplyOpen, ReplyData, ReplyDirectory, ReplyWrite, FileType, FileAttr};
 use libc::{ENOSYS, ENOENT};
 use time::Timespec;
+use std::mem;
 use std::env;
 use std::ffi::OsStr;
 use std::path::Path;
@@ -16,12 +17,15 @@ struct RisosFS {
 impl RisosFS {
     /// Inicializa o FS com o tamanho especificado em `memory_size` com blocos de memória de tamanho
     /// `block_size`.
-    fn new() -> RisosFS {
-        let memory_size: usize = 1024 * 1024 * 10;
-        let block_size: usize = 1024;
+    fn new() -> Self {
+        let max_files: usize = 1024;
+        let memory_size: usize = 1024 * 1024 * 1024;
+        let block_size: usize = max_files * (mem::size_of::<Box<[Inode]>>() + mem::size_of::<Inode>());
+
+        let mut disk = Disk::new(memory_size, block_size);
 
         RisosFS {
-            disk: Disk::new(memory_size, block_size)
+            disk
         }
     }
 }
@@ -37,19 +41,8 @@ impl Filesystem for RisosFS {
     ) {
         let file_name = name.to_str().unwrap();
 
-        // Procura pelo `path` do arquivo na tabela de inode
-        let hashmap_item = self.disk.get_inode_table().iter()
-            .find(|(_, inode)| inode.path == file_name);
 
-        match hashmap_item {
-            // Se houver um item com o `path`, então ele dá um `reply` com os atributos do arquivo
-            Some ((_, inode)) => {
-                let ttl = Timespec::new(1, 0);
-                reply.entry(&ttl, &inode.attributes, 0);
-            }
-            // Caso não seja encontrado, retorna um código de erro
-            None => reply.error(ENOSYS)
-        }
+        reply.error(ENOSYS)
     }
 
     fn create(
