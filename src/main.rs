@@ -1,5 +1,8 @@
 extern crate fuse;
+#[macro_use]
+extern crate serde_big_array;
 mod persistence;
+mod serialization;
 
 use fuse::{Filesystem, Request, ReplyCreate, ReplyEmpty, ReplyAttr, ReplyEntry, ReplyOpen, ReplyData, ReplyDirectory, ReplyWrite, FileType, FileAttr};
 use libc::{ENOSYS, ENOENT};
@@ -22,7 +25,7 @@ impl RisosFS {
         let memory_size: usize = 1024 * 1024 * 1024;
         let block_size: usize = max_files * (mem::size_of::<Box<[Inode]>>() + mem::size_of::<Inode>());
 
-        let mut disk = Disk::new(memory_size, block_size);
+        let disk = Disk::new(memory_size, block_size);
 
         RisosFS {
             disk
