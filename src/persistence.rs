@@ -5,6 +5,7 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::fmt::Error;
 use std::path::Path;
+use std::any::Any;
 use serde::{Serialize, Deserialize};
 use crate::serialization::FileAttrDef;
 use bincode::{serialize, deserialize};
@@ -161,5 +162,39 @@ impl Disk {
 
         let memory_block = MemoryBlock { data: content };
         self.memory_blocks[block_index] = memory_block;
+    }
+
+    pub fn write_to_disk(&mut self, inode_file: &mut File, disk_file: &mut File, inode_data: &mut Vec<Option<Inode>>, disk_data: &mut Vec<MemoryBlock>) {
+        match serialize(inode_data) {
+            Err(e) => {
+                print!("Erro ao tentar escrever para arquivo de inodes! {}", e);
+                return;
+            },
+            Ok(v) => {
+                match inode_file.write(&v) {
+                    Err(e) => {
+                        print!("Erro ao tentar escrever para arquivo de inodes! {}", e);
+                        return;
+                    },
+                    Ok(v) => v,
+                };
+            },
+        };
+
+        match serialize(disk_data) {
+            Err(e) => {
+                print!("Erro ao tentar escrever para arquivo de disco! {}", e);
+                return;
+            },
+            Ok(v) => {
+                match disk_file.write(&v) {
+                    Err(e) => {
+                        print!("Erro ao tentar escrever para arquivo de inodes! {}", e);
+                        return;
+                    },
+                    Ok(v) => v,
+                };
+            },
+        };
     }
 }
