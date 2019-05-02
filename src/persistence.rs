@@ -44,7 +44,8 @@ impl Disk {
         // Quantidade de blocos de memória
         let block_quantity: usize = (memory_size_in_bytes / block_size) - 1;
         // Está sendo considerado o tamanho do ponteiro do Box além do tamanho da struct de Inode
-        let max_files = (block_size + 1) / (mem::size_of::<Box<[Inode]>>() + mem::size_of::<Inode>());
+        let inode_size = mem::size_of::<Box<[Inode]>>() + mem::size_of::<Inode>();
+        let max_files = (block_size + 1) / inode_size;
 
         // Vetor de blocos de memoria
         let mut super_block: Vec<Option<Inode>> = Vec::with_capacity(max_files);
@@ -53,21 +54,16 @@ impl Disk {
         let mut memory_blocks: Vec<MemoryBlock> = Vec::with_capacity(block_quantity);
 
         // Tenta ler o arquivo do disco, se nao existir cria um novo
-        if Path::new(".disco.txt").exists() && Path::new(".inodes.txt").exists() {
+        if Path::new("..disco.risos").exists() && Path::new(".inodes.risos").exists() {
             println!("Disco existente encontrado! Carregando...");
             let mut ser_inodes: Vec<u8> = Vec::new();
             let mut ser_disk: Vec<u8> = Vec::new();
             File::open(".inodes.risos").unwrap().read(&mut ser_inodes).unwrap();
             File::open(".disco.risos").unwrap().read(&mut ser_disk).unwrap();
 
-            let mut super_block: Vec<Option<Inode>> = match deserialize(&ser_inodes) {
-                Err(e) => panic!("Erro lendo disco persistido! {}", e),
-                Ok(v) => v,
-            };
-            let mut memory_blocks: Vec<MemoryBlock> = match deserialize(&ser_disk) {
-                Err(e) => panic!("Erro lendo disco persistido! {}", e),
-                Ok(v) => v,
-            };
+            let mut super_block: Vec<Option<Inode>> = deserialize(&ser_inodes).expect("Erro ao ler inodes do disco persistido!");
+
+            let mut memory_blocks: Vec<MemoryBlock> = deserialize(&ser_disk).expect("Erro lendo disco persistido!");
 
             // Se o numero de blocos do disco existente for maior que o do disco a ser criado, termina a execuçao
             if (block_quantity - 1) < memory_blocks.len() {
@@ -75,26 +71,20 @@ impl Disk {
             }
 
             // Instanciando em branco outras posiçoes possiveis para maior velocidade
-            for _ in (super_block.len() + 1)..max_files {
+            for _ in super_block.len()..max_files {
                 let value: Option<Inode> = Option::None;
                 super_block.push(value);
             }
 
-            for _ in (memory_blocks.len() + 1)..block_quantity {
+            for _ in memory_blocks.len()..block_quantity {
                 let value: MemoryBlock = MemoryBlock { data: Box::default() };
                 memory_blocks.push(value);
             }
 
             println!("Done =)");
         } else {
-            match File::create(".disco.risos") {
-                Err(e) => panic!("Erro criando arquivos para persistencia!"),
-                Ok(v) => v,
-            };
-            match File::create(".inodes.risos") {
-                Err(e) => panic!("Erro criando arquivos para persistencia!"),
-                Ok(v) => v,
-            };
+            File::create(".disco.risos").expect("Erro criando arquivos para persistencia!");
+            File::create(".inodes.risos").expect("Erro criando arquivos para persistencia!");
 
             for _ in 0..block_quantity {
                 let value: MemoryBlock = MemoryBlock { data: Box::default() };
@@ -109,7 +99,7 @@ impl Disk {
 
         println!("Tamanho do disco (kbytes): {}", memory_size_in_bytes / 1024);
         println!("Tamanho do bloco de memória (kbytes): {}", block_size / 1024);
-        println!("Quantidade máxima de arquivos (Inode {} bytes): {}", (mem::size_of::<Box<[Inode]>>() + mem::size_of::<Inode>()), max_files);
+        println!("Quantidade máxima de arquivos (Inode {} bytes): {}", inode_size, max_files);
 
         Disk {
             memory_blocks: memory_blocks.into_boxed_slice(),
