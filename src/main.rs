@@ -175,7 +175,7 @@ fn main() {
         }
     };
 
-    fuse::mount(fs, &mountpoint, &[]).unwrap();
-    
     println!("RisosFS started!");
+
+    fuse::mount(fs, &mountpoint, &[]).unwrap();    
 }
