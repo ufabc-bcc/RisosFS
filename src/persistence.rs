@@ -8,6 +8,8 @@ use std::fs::OpenOptions;
 use serde::{Serialize, Deserialize};
 use crate::serialization::FileAttrDef;
 use bincode::{serialize, deserialize};
+use time::{Timespec, Tm};
+use fuse::{FileType};
 
 big_array! { BigArray; }
 
@@ -29,7 +31,7 @@ pub struct Inode {
 
 #[derive(Serialize, Deserialize)]
 pub struct MemoryBlock {
-    data: Box<[u8]>
+    data: Option<Box<[u8]>>
 }
 
 impl Disk {
@@ -41,37 +43,35 @@ impl Disk {
         memory_size_in_bytes: usize,
         block_size: usize
     ) -> Disk {
-
         // Quantidade de blocos de memória
         let block_quantity: usize = (memory_size_in_bytes / block_size) - 1;
         // Está sendo considerado o tamanho do ponteiro do Box além do tamanho da struct de Inode
         let inode_size = mem::size_of::<Box<[Inode]>>() + mem::size_of::<Inode>();
-        let max_files = (block_size + 1) / inode_size;
+        let max_files = block_size / inode_size;
 
-        // Vetor de blocos de memoria
-        let mut super_block: Vec<Option<Inode>> = Vec::with_capacity(max_files);
-
-        // Tabela de Inodes
-        let mut memory_blocks: Vec<MemoryBlock> = Vec::with_capacity(block_quantity);
-
-        let disk_file = format!("{}/.disco.risos", &root_path);
-        let inode_table_file = format!("{}/.inode.risos", &root_path);
+        let disk_file_path = format!("{}/.disco.risos", &root_path);
+        let inode_table_file_path = format!("{}/.inode.risos", &root_path);
 
         // Tenta ler o arquivo do disco, se nao existir cria um novo
-        if Path::new(&disk_file).exists() && Path::new(&inode_table_file).exists() {
+        let mut memory_blocks: Vec<MemoryBlock>;
+        let mut super_block: Vec<Option<Inode>>;
+
+        if Path::new(&disk_file_path).exists() && Path::new(&inode_table_file_path).exists() {
             println!("Disco existente encontrado! Carregando...");
+
             let mut ser_inodes: Vec<u8> = Vec::new();
             let mut ser_disk: Vec<u8> = Vec::new();
-            File::open(&inode_table_file).unwrap().read(&mut ser_inodes).unwrap();
-            File::open(&disk_file).unwrap().read(&mut ser_disk).unwrap();
 
-            let mut super_block: Vec<Option<Inode>> = if &ser_inodes.len() > &0 {
+            File::open(&inode_table_file_path).unwrap().read(&mut ser_inodes).unwrap();
+            File::open(&disk_file_path).unwrap().read(&mut ser_disk).unwrap();
+
+            super_block = if &ser_inodes.len() > &0 {
                 deserialize(&ser_inodes).expect("Erro lendo disco persistido!")
              } else {
                 Vec::new()
             };
 
-            let mut memory_blocks: Vec<MemoryBlock> = if &ser_disk.len() > &0 {
+            memory_blocks = if &ser_disk.len() > &0 {
                 deserialize(&ser_disk).expect("Erro lendo disco persistido!")
             } else {
                 Vec::new()
@@ -81,33 +81,26 @@ impl Disk {
             if (block_quantity - 1) < memory_blocks.len() {
                 panic!("O disco existente e maior que o disco atual! Tente inicializar com um disco de tamanho maior!");
             }
-
-            // Instanciando em branco outras posiçoes possiveis para maior velocidade
-            for _ in super_block.len()..max_files {
-                let value: Option<Inode> = Option::None;
-                super_block.push(value);
-            }
-
-            for _ in memory_blocks.len()..block_quantity {
-                let value: MemoryBlock = MemoryBlock { data: Box::default() };
-                memory_blocks.push(value);
-            }
-
-            println!("Done =)");
         } else {
-            File::create(&disk_file).expect("Erro criando arquivos para persistencia!");
-            File::create(&inode_table_file).expect("Erro criando arquivos para persistencia!");
+            File::create(&disk_file_path).expect("Erro criando arquivos para persistencia!");
+            File::create(&inode_table_file_path).expect("Erro criando arquivos para persistencia!");
 
-            for _ in 0..block_quantity {
-                let value: MemoryBlock = MemoryBlock { data: Box::default() };
-                memory_blocks.push(value);
-            }
-
-            for _ in 0..max_files {
-                let value: Option<Inode> = Option::None;
-                super_block.push(value);
-            }
+            super_block = Vec::new();
+            memory_blocks = Vec::new();            
         };
+
+        // Instanciando em branco outras posiçoes possiveis para maior velocidade
+        for _ in super_block.len()..max_files {
+            let value: Option<Inode> = Option::None;
+            super_block.push(value);
+        }
+
+        for _ in memory_blocks.len()..block_quantity {
+            let value: MemoryBlock = MemoryBlock { data: Option::None };
+            memory_blocks.push(value);
+        }
+
+        println!("Done =)");
 
         println!("\nTamanho do disco (kbytes): {}", memory_size_in_bytes / 1024);
         println!("Tamanho do bloco de memória (kbytes): {}", block_size / 1024);
@@ -122,10 +115,52 @@ impl Disk {
         }
     }
 
+    pub fn find_index_of_empty_inode(&self) -> Option<usize> {
+        for (index, inode) in self.super_block.iter().enumerate() {
+            if let Option::None = inode {
+                return Option::Some(index);
+            }
+        }
+
+        Option::None
+    }
+
+    pub fn find_index_of_empty_memory_block(&self) -> Option<usize> {
+        for (index, memory_block) in self.memory_blocks.iter().enumerate() {
+            if let Option::None = memory_block.data {
+                return Option::Some(index);
+            }
+        }
+
+        Option::None
+    }
+
+    pub fn write_inode(&mut self, index: usize, inode: Inode) {
+        if mem::size_of_val(&inode) > self.block_size {
+            println!("Não foi possível salvar o inode: tamanho maior que o tamanho do bloco de memória");
+            return;
+        }
+
+        self.super_block[index] = Some(inode);
+    }
+
+    pub fn get_inode(&self, index: usize) -> Option<&Inode> {
+        match &self.super_block[index] {
+            Some(inode) => Some(inode),
+            None => None
+        }
+    }
+
     /// Recupera o conteúdo de um bloco de memória convertido para `str`
-    pub fn get_content(&self, block_index: usize) -> &str {
+    pub fn get_content(&self, block_index: usize) -> Option<&str> {
         let data = self.get_content_as_bytes(block_index);
-        str::from_utf8(&data).unwrap()
+        
+        match &data {
+            Some(data) => {
+                Option::Some(str::from_utf8(&data).unwrap())
+            },
+            None => None
+        }
     }
 
     /// Recupera um array de bytes borrowed de um bloco especificado.
@@ -136,7 +171,7 @@ impl Disk {
     /// let disk = Disk::new(args);
     /// let content: [u8] = disk.get_content_as_bytes(1);
     /// ```
-    pub fn get_content_as_bytes(&self, block_index: usize) -> &Box<[u8]> {
+    pub fn get_content_as_bytes(&self, block_index: usize) -> &Option<Box<[u8]>> {
         let memory_block = &self.memory_blocks[block_index];
         return &memory_block.data;
     }
@@ -163,7 +198,7 @@ impl Disk {
             panic!("Não foi possível salvar o conteúdo do arquivo, pois excede o tamanho do bloco de memória {}", self.block_size);
         }
 
-        let memory_block = MemoryBlock { data: content };
+        let memory_block = MemoryBlock { data: Option::Some(content) };
         self.memory_blocks[block_index] = memory_block;
     }
 

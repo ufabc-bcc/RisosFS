@@ -6,9 +6,9 @@ mod serialization;
 
 use fuse::{Filesystem, Request, ReplyCreate, ReplyEmpty, ReplyAttr, ReplyEntry, ReplyOpen, ReplyData, ReplyDirectory, ReplyWrite, FileType, FileAttr};
 use libc::{ENOSYS};
-use time::Timespec;
-use std::mem;
+use time::{Timespec, Tm};
 use std::env;
+use std::mem;
 use std::ffi::OsStr;
 use std::path::Path;
 use crate::persistence::{Disk, Inode};
@@ -43,20 +43,55 @@ impl Filesystem for RisosFS {
         reply: ReplyEntry
     ) {
         let file_name = name.to_str().unwrap();
-
-
-        reply.error(ENOSYS)
     }
 
     fn create(
         &mut self, 
         _req: &Request, 
         _parent: u64, 
-        _name: &OsStr, 
+        name: &OsStr, 
         _mode: u32, 
-        _flags: u32, 
+        flags: u32, 
         reply: ReplyCreate
-    ) { }
+    ) {
+        let inode_index = self.disk.find_index_of_empty_inode().unwrap(); // TODO: necessário tratar
+        let memory_block_index = self.disk.find_index_of_empty_memory_block().unwrap(); // TODO: necessário tratar
+
+        let ts = time::now().to_timespec();
+
+        let attr = FileAttr {
+            ino: inode_index as u64,
+            size: 0,
+            blocks: 0,
+            atime: ts,
+            mtime: ts,
+            ctime: ts,
+            crtime: ts,
+            kind: FileType::RegularFile,
+            perm: 0o755,
+            nlink: 0,
+            uid: 0,
+            gid: 0,
+            rdev: 0,
+            flags,
+        };
+        
+        let name = name.to_str().unwrap();
+        let name: Vec<char> = name.chars().collect();
+
+        let mut name_char = ['\0'; 64];
+        name_char[..name.len()].clone_from_slice(&name);
+
+        let inode = Inode {
+            name: name_char,
+            attributes: attr
+        };
+
+        self.disk.write_inode(inode_index, inode);
+        self.disk.write_content(memory_block_index, &"");
+
+        reply.created(&ts, &attr, 1, 1, flags)
+    }
 
     fn fsync(
         &mut self, 
@@ -73,30 +108,14 @@ impl Filesystem for RisosFS {
         ino: u64,
         reply: ReplyAttr
     ) {
-        let ts = Timespec::new(0, 0);
+        println!("getattr(ino={})", ino);
 
-        let attr = FileAttr {
-            ino: 1,
-            size: 0,
-            blocks: 0,
-            atime: ts,
-            mtime: ts,
-            ctime: ts,
-            crtime: ts,
-            kind: FileType::Directory,
-            perm: 0o755,
-            nlink: 0,
-            uid: 0,
-            gid: 0,
-            rdev: 0,
-            flags: 0,
-        };
-
-        let ttl = Timespec::new(1, 0);
-        if ino == 1 {
-            reply.attr(&ttl, &attr);
-        } else {
-            reply.error(ENOSYS);
+        match self.disk.get_inode(ino as usize) {
+            Some(inode) => {
+                let ttl = time::now().to_timespec();
+                reply.attr(&ttl, &inode.attributes);
+            },
+            None => reply.error(ENOSYS)
         }
     }
 
@@ -132,10 +151,11 @@ impl Filesystem for RisosFS {
         &mut self, 
         _req: &Request, 
         ino: u64, 
-        _fh: u64, 
+        fh: u64, 
         offset: i64, 
         mut reply: ReplyDirectory
     ) {
+        println!("readdir(ino={}, fh={}, offset={})", ino, fh, offset);
         if ino == 1 {
             if offset == 0 {
                 reply.add(1, 0, FileType::Directory, &Path::new("."));
@@ -145,20 +165,19 @@ impl Filesystem for RisosFS {
         } else {
             reply.error(ENOSYS);
         }
-        
-        // TODO: pesquisa de arquivos na tabela
     }
 
     fn write(
         &mut self, 
         _req: &Request, 
-        _ino: u64, 
+        ino: u64, 
         _fh: u64, 
         _offset: i64, 
-        _data: &[u8], 
+        data: &[u8], 
         _flags: u32, 
         reply: ReplyWrite
-    ) { }
+    ) {
+    }
 
     fn destroy(&mut self, req: &Request) {
         self.disk.write_to_disk();
