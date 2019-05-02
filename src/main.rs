@@ -5,7 +5,7 @@ mod persistence;
 mod serialization;
 
 use fuse::{Filesystem, Request, ReplyCreate, ReplyEmpty, ReplyAttr, ReplyEntry, ReplyOpen, ReplyData, ReplyDirectory, ReplyWrite, FileType, FileAttr};
-use libc::{ENOSYS, ENOENT};
+use libc::{ENOSYS};
 use time::Timespec;
 use std::mem;
 use std::env;
@@ -20,12 +20,12 @@ struct RisosFS {
 impl RisosFS {
     /// Inicializa o FS com o tamanho especificado em `memory_size` com blocos de memória de tamanho
     /// `block_size`.
-    fn new() -> Self {
+    fn new(root_path: String) -> Self {
         let max_files: usize = 1024;
         let memory_size: usize = 1024 * 1024 * 1024;
         let block_size: usize = max_files * (mem::size_of::<Box<[Inode]>>() + mem::size_of::<Inode>());
 
-        let disk = Disk::new(memory_size, block_size);
+        let disk = Disk::new(root_path, memory_size, block_size);
 
         RisosFS {
             disk
@@ -160,13 +160,15 @@ impl Filesystem for RisosFS {
         reply: ReplyWrite
     ) { }
 
+    fn destroy(&mut self, req: &Request) {
+        self.disk.write_to_disk();
+    }
+
     // fn truncate
     // fn utimens
 }
 
 fn main() {
-    let fs = RisosFS::new();
-
     let mountpoint = match env::args().nth(1) {
         Some(path) => path,
         None => {
@@ -175,7 +177,13 @@ fn main() {
         }
     };
 
-    println!("RisosFS started!");
+    let fs = RisosFS::new(mountpoint.clone());
 
-    fuse::mount(fs, &mountpoint, &[]).unwrap();    
+    let options = ["-o", "nonempty"]
+        .iter()
+        .map(|o| o.as_ref())
+        .collect::<Vec<&OsStr>>();
+
+    println!("RisosFS started!");
+    fuse::mount(fs, &mountpoint, &options).unwrap();
 }
