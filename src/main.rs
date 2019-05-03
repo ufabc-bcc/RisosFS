@@ -33,6 +33,13 @@ impl RisosFS {
     }
 }
 
+impl Drop for RisosFS {
+    fn drop(&mut self) {
+        println!("cleanup");
+        &self.disk.write_to_disk();
+    }
+}
+
 /// Implementação das funções disponíveis na lib `rust-fuse`
 impl Filesystem for RisosFS {
     fn lookup(
@@ -96,9 +103,9 @@ impl Filesystem for RisosFS {
     fn fsync(
         &mut self, 
         _req: &Request, 
-        _ino: u64, 
-        _fh: u64, 
-        _datasync: bool, 
+        ino: u64, 
+        fh: u64, 
+        datasync: bool, 
         reply: ReplyEmpty
     ) { }
 
@@ -156,15 +163,22 @@ impl Filesystem for RisosFS {
         mut reply: ReplyDirectory
     ) {
         println!("readdir(ino={}, fh={}, offset={})", ino, fh, offset);
-        if ino == 1 {
-            if offset == 0 {
-                reply.add(1, 0, FileType::Directory, &Path::new("."));
-                reply.add(1, 1, FileType::Directory, &Path::new(".."));
-            }
-            reply.ok();
-        } else {
-            reply.error(ENOSYS);
+
+        if offset == 0 {
+            reply.add(1, 0, FileType::Directory, &Path::new("."));
+            reply.add(1, 1, FileType::Directory, &Path::new(".."));
         }
+
+        for inode in self.disk.get_inode_table().iter() {
+            if let Some(inode_data) = inode {
+                if inode_data.attributes.ino != 1 {
+                    let name = inode_data.name.iter().collect::<String>();
+                    reply.add(inode_data.attributes.ino, 0, inode_data.attributes.kind, name);
+                }
+            }
+        }
+
+        reply.ok();
     }
 
     fn write(
@@ -177,10 +191,7 @@ impl Filesystem for RisosFS {
         _flags: u32, 
         reply: ReplyWrite
     ) {
-    }
-
-    fn destroy(&mut self, req: &Request) {
-        self.disk.write_to_disk();
+        
     }
 
     // fn truncate

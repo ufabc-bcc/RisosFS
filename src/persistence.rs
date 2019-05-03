@@ -62,8 +62,8 @@ impl Disk {
             let mut ser_inodes: Vec<u8> = Vec::new();
             let mut ser_disk: Vec<u8> = Vec::new();
 
-            File::open(&inode_table_file_path).unwrap().read(&mut ser_inodes).unwrap();
-            File::open(&disk_file_path).unwrap().read(&mut ser_disk).unwrap();
+            File::open(&inode_table_file_path).unwrap().read_to_end(&mut ser_inodes).unwrap();
+            File::open(&disk_file_path).unwrap().read_to_end(&mut ser_disk).unwrap();
 
             super_block = if &ser_inodes.len() > &0 {
                 deserialize(&ser_inodes).expect("Erro lendo disco persistido!")
@@ -78,15 +78,44 @@ impl Disk {
             };
 
             // Se o numero de blocos do disco existente for maior que o do disco a ser criado, termina a execuçao
-            if (block_quantity - 1) < memory_blocks.len() {
+            if block_quantity < memory_blocks.len() {
                 panic!("O disco existente e maior que o disco atual! Tente inicializar com um disco de tamanho maior!");
             }
         } else {
             File::create(&disk_file_path).expect("Erro criando arquivos para persistencia!");
             File::create(&inode_table_file_path).expect("Erro criando arquivos para persistencia!");
 
-            super_block = Vec::new();
-            memory_blocks = Vec::new();            
+            super_block = Vec::with_capacity(2);
+            memory_blocks = Vec::new();
+
+            let ts = time::now().to_timespec();
+            let attr = FileAttr {
+                ino: 1,
+                size: 0,
+                blocks: 0,
+                atime: ts,
+                mtime: ts,
+                ctime: ts,
+                crtime: ts,
+                kind: FileType::Directory,
+                perm: 0o755,
+                nlink: 0,
+                uid: 0,
+                gid: 0,
+                rdev: 0,
+                flags: 0,
+            };
+
+            let mut name = ['\0'; 64];
+            name[0] = '.';
+
+            let initial_inode = Inode {
+                name,
+                attributes: attr
+            };
+
+            super_block.push(None);
+            super_block.push(Some(initial_inode));
         };
 
         // Instanciando em branco outras posiçoes possiveis para maior velocidade
@@ -113,6 +142,11 @@ impl Disk {
             block_size,
             root_path
         }
+    }
+
+    // TODO: Idealmente, não teremos essa função em versões posteriores. Criado apenas para prosseguir com o milestone 5
+    pub fn get_inode_table(&self) -> &Box<[Option<Inode>]> {
+        &self.super_block
     }
 
     pub fn find_index_of_empty_inode(&self) -> Option<usize> {
@@ -209,7 +243,7 @@ impl Disk {
                 return;
             },
             Ok(v) => {
-                let inode_file = format!("{}/.inodes.risos", &self.root_path);
+                let inode_file = format!("{}/.inode.risos", &self.root_path);
                 let mut inode_file = OpenOptions::new().write(true).open(inode_file).unwrap();
                 match inode_file.write(&v) {
                     Err(e) => {
