@@ -5,7 +5,7 @@ mod persistence;
 mod serialization;
 
 use fuse::{Filesystem, Request, ReplyCreate, ReplyEmpty, ReplyAttr, ReplyEntry, ReplyOpen, ReplyData, ReplyDirectory, ReplyWrite, FileType, FileAttr};
-use libc::{ENOSYS, ENOENT, EIO};
+use libc::{ENOSYS, ENOENT, EIO, EISDIR};
 use time::{Timespec};
 use std::env;
 use std::mem;
@@ -287,6 +287,31 @@ impl Filesystem for RisosFS {
                 println!("Inode não foi encontrado");
                 reply.error(ENOENT);
             }
+        }
+    }
+
+    fn unlink(
+        &mut self, 
+        _req: &Request, 
+        _parent: u64, 
+        name: &OsStr, 
+        reply: ReplyEmpty
+    ) {
+        let name = name.to_str().unwrap();
+        let inode = self.disk.get_inode_by_name(name);
+
+        match inode {
+            Some(inode) => {
+                if inode.attributes.kind == FileType::Directory {
+                    reply.error(EISDIR);
+                } else {
+                    let ino = inode.attributes.ino as usize;
+                    self.disk.clear_inode(ino);
+                    self.disk.clear_memory_block(ino);
+                    reply.ok()
+                }
+            },
+            None => reply.error(EIO)
         }
     }
 

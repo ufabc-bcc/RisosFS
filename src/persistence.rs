@@ -256,6 +256,15 @@ impl Disk {
         self.memory_blocks[block_index] = memory_block;
     }
 
+    pub fn clear_memory_block(&mut self, block_index: usize) {
+        self.memory_blocks[block_index].data = None;
+    }
+
+
+    pub fn clear_inode(&mut self, block_index: usize) {
+        self.super_block[block_index] = None;
+    }
+
     pub fn write_to_disk(&mut self) {
         match serialize(&self.super_block) {
             Err(e) => {
