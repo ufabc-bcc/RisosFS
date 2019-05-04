@@ -5,8 +5,8 @@ mod persistence;
 mod serialization;
 
 use fuse::{Filesystem, Request, ReplyCreate, ReplyEmpty, ReplyAttr, ReplyEntry, ReplyOpen, ReplyData, ReplyDirectory, ReplyWrite, FileType, FileAttr};
-use libc::{ENOSYS, ENOENT};
-use time::{Timespec, Tm};
+use libc::{ENOSYS, ENOENT, EIO};
+use time::{Timespec};
 use std::env;
 use std::mem;
 use std::ffi::OsStr;
@@ -179,6 +179,7 @@ impl Filesystem for RisosFS {
         }
     }
 
+    // TODO: implementar mknod
     fn mknod(
         &mut self, 
         _req: &Request, 
@@ -219,7 +220,13 @@ impl Filesystem for RisosFS {
         reply: ReplyData
     ) {
         println!("read(ino={}, fh={}, offset={}, size={})", ino, fh, offset, size);
-        reply.error(ENOSYS);
+
+        let memory_block = self.disk.get_content_as_bytes(ino as usize);
+        
+        match memory_block {
+            Some(memory_block) => reply.data(memory_block),
+            None => reply.error(EIO)
+        }
     }
 
     fn readdir(
