@@ -150,8 +150,8 @@ impl Disk {
     }
 
     pub fn find_index_of_empty_inode(&self) -> Option<usize> {
-        for (index, inode) in self.super_block.iter().enumerate() {
-            if let Option::None = inode {
+        for index in 1..self.super_block.len() - 1 {
+            if let Option::None = self.super_block[index] {
                 return Option::Some(index);
             }
         }
@@ -160,8 +160,8 @@ impl Disk {
     }
 
     pub fn find_index_of_empty_memory_block(&self) -> Option<usize> {
-        for (index, memory_block) in self.memory_blocks.iter().enumerate() {
-            if let Option::None = memory_block.data {
+        for index in 1..self.memory_blocks.len() - 1 {
+            if let Option::None = self.memory_blocks[index].data {
                 return Option::Some(index);
             }
         }
@@ -178,10 +178,30 @@ impl Disk {
         self.super_block[index] = Some(inode);
     }
 
-    pub fn get_inode(&self, index: usize) -> Option<&Inode> {
-        match &self.super_block[index] {
+    // TODO: ver se o melhor a se fazer é criar um get_inode sem mut (apenas readonly)
+    pub fn get_inode(&mut self, index: usize) -> Option<&mut Inode> {
+        match &mut self.super_block[index] {
             Some(inode) => Some(inode),
             None => None
+        }
+    }
+
+    // TODO: ver se o melhor a se fazer é criar um get_inode sem mut (apenas readonly)
+    pub fn get_inode_by_name(&mut self, name: &str) -> &Option<Inode> {
+        let inode =  &self.super_block.iter().find(|i| match i {
+            Some(i) => {
+                let name_from_inode: String = i.name.iter().collect::<String>();
+                let name_from_inode: &str = name_from_inode.as_str().trim_matches(char::from(0));
+                let name = name.trim();
+                println!("    - lookup(name={:?}, name_from_inode={:?}, equals={})", name, name_from_inode, name_from_inode == name);
+                return name_from_inode == name;
+            },
+            None => false
+        });
+
+        match inode {
+            Some(inode) => inode,
+            None => &None
         }
     }
 
