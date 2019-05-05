@@ -14,3 +14,15 @@ macOS ou Linux:
 ```
 curl https://sh.rustup.rs -sSf | sh
 ```
+
+## Compilação e Execução
+
+Para compilar o programa, basta entrar no diretório raíz e executar o comando: `cargo build`.
+
+Após compilado, para execução, basta utilizar o comando `cargo run <diretório>`, onde <diretório> é onde se deseja executar o FS.
+
+Para utilizar o FS, abra outro terminal, entre na pasta onde o FS foi executado e utilize os comandos.
+
+## Comandos disponíveis
+
+`ls`, `mkdir`, `chown`, `chgrp`
