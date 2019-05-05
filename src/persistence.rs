@@ -8,7 +8,6 @@ use std::fs::OpenOptions;
 use serde::{Serialize, Deserialize};
 use crate::serialization::FileAttrDef;
 use bincode::{serialize, deserialize};
-use time::{Timespec, Tm};
 use fuse::{FileType};
 
 big_array! { BigArray; }
@@ -26,7 +25,9 @@ pub struct Inode {
     #[serde(with = "BigArray")]
     pub name: [char; 64],
     #[serde(with = "FileAttrDef")]
-    pub attributes: FileAttr
+    pub attributes: FileAttr,
+    #[serde(with = "BigArray")]
+    pub references: [Option<usize>; 128]
 }
 
 #[derive(Serialize, Deserialize)]
@@ -111,7 +112,8 @@ impl Disk {
 
             let initial_inode = Inode {
                 name,
-                attributes: attr
+                attributes: attr,
+                references: [None; 128]
             };
 
             super_block.push(None);
@@ -169,6 +171,13 @@ impl Disk {
         Option::None
     }
 
+    pub fn find_empty_reference(&self, block_index: usize) -> Option<usize> {
+        match &self.super_block[block_index] {
+            Some(inode) => inode.references.iter().position(|r| r == &None),
+            None => panic!("Tentativa inválida de memória")
+        }
+    }
+
     pub fn write_inode(&mut self, index: usize, inode: Inode) {
         if mem::size_of_val(&inode) > self.block_size {
             println!("Não foi possível salvar o inode: tamanho maior que o tamanho do bloco de memória");
@@ -187,21 +196,41 @@ impl Disk {
     }
 
     // TODO: ver se o melhor a se fazer é criar um get_inode sem mut (apenas readonly)
-    pub fn get_inode_by_name(&mut self, name: &str) -> &Option<Inode> {
-        let inode =  &self.super_block.iter().find(|i| match i {
-            Some(i) => {
-                let name_from_inode: String = i.name.iter().collect::<String>();
-                let name_from_inode: &str = name_from_inode.as_str().trim_matches(char::from(0));
-                let name = name.trim();
-                println!("    - lookup(name={:?}, name_from_inode={:?}, equals={})", name, name_from_inode, name_from_inode == name);
-                return name_from_inode == name;
-            },
-            None => false
-        });
+    pub fn get_inode_by_name(&self, parent_inode: usize, name: &str) -> Option<&Inode> {
+        match &self.super_block[parent_inode] {
+            Some(parent_inode) => {
+                for ino_ref in parent_inode.references.iter() {
+                    if let Some(ino_ref) = ino_ref {
+                        let index: usize = ino_ref.clone();
 
-        match inode {
-            Some(inode) => inode,
-            None => &None
+                        match &self.super_block[index] {
+                            Some(inode) => {
+                                let name_from_inode: String = inode.name.iter().collect::<String>();
+                                let name_from_inode: &str = name_from_inode.as_str().trim_matches(char::from(0));
+                                let name = name.trim();
+                                println!("    - lookup(name={:?}, name_from_inode={:?}, equals={})", name, name_from_inode, name_from_inode == name);
+                                
+                                if name_from_inode == name {
+                                    return Some(inode);
+                                }
+                            },
+                            None => panic!("fn get_inode_by_name: Inode reference não encontrado")
+                        }
+
+                        
+                    }
+                }
+            },
+            None => panic!("fn get_inode_by_name: Inode parent não encontrado")
+        }
+
+        return None;
+    }
+
+    pub fn get_references_from_inode(&self, block_index: usize) -> &[Option<usize>; 128] {
+        match &self.super_block[block_index] {
+            Some(inode) => &inode.references,
+            None => panic!("fn get_references_from_inode: Inode não encontrado")
         }
     }
 
@@ -256,10 +285,18 @@ impl Disk {
         self.memory_blocks[block_index] = memory_block;
     }
 
+    pub fn write_reference_in_inode(&mut self, ino: usize, ref_index: usize, ref_content: usize) {
+        match &mut self.super_block[ino] {
+            Some(inode) => {
+                inode.references[ref_index] = Some(ref_content);
+            },
+            None => panic!("fn write_reference_in_inode: Inode não encontrado!")
+        }
+    }
+
     pub fn clear_memory_block(&mut self, block_index: usize) {
         self.memory_blocks[block_index].data = None;
     }
-
 
     pub fn clear_inode(&mut self, block_index: usize) {
         self.super_block[block_index] = None;
