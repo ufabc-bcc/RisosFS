@@ -5,11 +5,7 @@ mod persistence;
 mod serialization;
 
 use fuse::{Filesystem, Request, ReplyCreate, ReplyEmpty, ReplyAttr, ReplyEntry, ReplyOpen, ReplyData, ReplyDirectory, ReplyWrite, FileType, FileAttr};
-<<<<<<< Updated upstream
-use libc::{ENOSYS, ENOENT, EIO, EISDIR};
-=======
 use libc::{ENOSYS, ENOENT, EIO, EISDIR, ENOSPC};
->>>>>>> Stashed changes
 use time::{Timespec};
 use std::env;
 use std::mem;
@@ -54,13 +50,9 @@ impl Filesystem for RisosFS {
     ) {
         println!("lookup(name={:?})", name);
         let file_name = name.to_str().unwrap();
-        let inode = self.disk.get_inode_by_name(file_name);
 
-<<<<<<< Updated upstream
-=======
         let inode = self.disk.get_inode_by_name(parent as usize, file_name);
 
->>>>>>> Stashed changes
         match inode {
             Some(inode) => {
                 let ttl = time::now().to_timespec();
@@ -74,19 +66,13 @@ impl Filesystem for RisosFS {
     fn create(
         &mut self, 
         _req: &Request, 
-<<<<<<< Updated upstream
-        _parent: u64, 
-=======
         parent: u64, 
->>>>>>> Stashed changes
         name: &OsStr, 
         mode: u32, 
         flags: u32, 
         reply: ReplyCreate
     ) {
         println!("create(name={:?}, mode={}, flags={})", name, mode, flags);
-<<<<<<< Updated upstream
-=======
 
         let ref_index = self.disk.find_empty_reference(parent as usize);
         // Se não houver mais espaço no vetor de references, indica que não é possível alocar mais arquivos dentro da pasta
@@ -96,7 +82,6 @@ impl Filesystem for RisosFS {
             return;
         }
 
->>>>>>> Stashed changes
         let inode_index = self.disk.find_index_of_empty_inode().unwrap(); // TODO: necessário tratar
         let memory_block_index = self.disk.find_index_of_empty_memory_block().unwrap(); // TODO: necessário tratar
 
@@ -127,25 +112,18 @@ impl Filesystem for RisosFS {
 
         let inode = Inode {
             name: name_char,
-<<<<<<< Updated upstream
-            attributes: attr
-=======
             attributes: attr,
             references: [None; 128]
->>>>>>> Stashed changes
         };
 
         self.disk.write_inode(inode_index, inode);
         self.disk.write_content(memory_block_index, &"");
 
-<<<<<<< Updated upstream
-=======
         // Adiciona a referência de inode criado no vetor references do inode "pai" (do diretório)
         let ref_index = ref_index.unwrap();
         let parent_inode = self.disk.get_inode(parent as usize).unwrap();
         parent_inode.references[ref_index] = Some(inode_index);
 
->>>>>>> Stashed changes
         reply.created(&ts, &attr, 1, inode_index as u64, flags)
     }
 
@@ -213,8 +191,6 @@ impl Filesystem for RisosFS {
                 reply.attr(&ttl, &inode.attributes);
             },
             None => reply.error(ENOENT)
-<<<<<<< Updated upstream
-=======
         }
     }
 
@@ -273,7 +249,6 @@ impl Filesystem for RisosFS {
                 }
             },
             None => { println!("Limite de arquivos dentro da pasta atingido!"); reply.error(EIO); }
->>>>>>> Stashed changes
         }
     }
 
@@ -287,11 +262,7 @@ impl Filesystem for RisosFS {
         rdev: u32, 
         reply: ReplyEntry
     ) { 
-<<<<<<< Updated upstream
-        println!("mknod(name={:?}, mode={}, rdev={})", name, mode, rdev);
-=======
         println!("mknod(name={:?}, mode={}, rdev={}) -> NOT IMPLEMENTED", name, mode, rdev);
->>>>>>> Stashed changes
         reply.error(ENOSYS);
     }
 
@@ -344,26 +315,6 @@ impl Filesystem for RisosFS {
         if ino == 1 {
             if offset == 0 {
                 reply.add(1, 0, FileType::Directory, ".");
-<<<<<<< Updated upstream
-                reply.add(1, 1, FileType::Directory, "..");
-
-                for inode in self.disk.get_inode_table().iter() {
-                    if let Some(inode_data) = inode {
-                        if inode_data.attributes.ino != 1 {
-                            let name = inode_data.name.iter().collect::<String>();
-                            let offset = ino as i64;
-                            println!("    - readdir(ino={}, name={})", inode_data.attributes.ino, name);
-                            reply.add(inode_data.attributes.ino, offset, inode_data.attributes.kind, name);
-                        }
-                    }
-                }
-            }
-
-            reply.ok();
-
-        } else {
-            reply.error(ENOENT);
-=======
                 reply.add(1, 0, FileType::Directory, "..");
             }
         }
@@ -401,7 +352,6 @@ impl Filesystem for RisosFS {
                 reply.ok()
             },
             None => { println!("ERROR ino={:?}", ino); reply.error(ENOENT) }
->>>>>>> Stashed changes
         }
     }
 
@@ -435,20 +385,12 @@ impl Filesystem for RisosFS {
     fn unlink(
         &mut self, 
         _req: &Request, 
-<<<<<<< Updated upstream
-        _parent: u64, 
-=======
         parent: u64, 
->>>>>>> Stashed changes
         name: &OsStr, 
         reply: ReplyEmpty
     ) {
         let name = name.to_str().unwrap();
-<<<<<<< Updated upstream
-        let inode = self.disk.get_inode_by_name(name);
-=======
         let inode = self.disk.get_inode_by_name(parent as usize, name);
->>>>>>> Stashed changes
 
         match inode {
             Some(inode) => {
@@ -486,9 +428,6 @@ fn main() {
         .collect::<Vec<&OsStr>>();
 
     println!("RisosFS started!");
-<<<<<<< Updated upstream
-=======
 
->>>>>>> Stashed changes
     fuse::mount(fs, &mountpoint, &options).unwrap();
 }

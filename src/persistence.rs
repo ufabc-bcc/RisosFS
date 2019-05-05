@@ -8,10 +8,6 @@ use std::fs::OpenOptions;
 use serde::{Serialize, Deserialize};
 use crate::serialization::FileAttrDef;
 use bincode::{serialize, deserialize};
-<<<<<<< Updated upstream
-use time::{Timespec, Tm};
-=======
->>>>>>> Stashed changes
 use fuse::{FileType};
 
 big_array! { BigArray; }
@@ -116,12 +112,8 @@ impl Disk {
 
             let initial_inode = Inode {
                 name,
-<<<<<<< Updated upstream
-                attributes: attr
-=======
                 attributes: attr,
                 references: [None; 128]
->>>>>>> Stashed changes
             };
 
             super_block.push(None);
@@ -179,8 +171,6 @@ impl Disk {
         Option::None
     }
 
-<<<<<<< Updated upstream
-=======
     pub fn find_empty_reference(&self, block_index: usize) -> Option<usize> {
         match &self.super_block[block_index] {
             Some(inode) => inode.references.iter().position(|r| r == &None),
@@ -188,7 +178,6 @@ impl Disk {
         }
     }
 
->>>>>>> Stashed changes
     pub fn write_inode(&mut self, index: usize, inode: Inode) {
         if mem::size_of_val(&inode) > self.block_size {
             println!("Não foi possível salvar o inode: tamanho maior que o tamanho do bloco de memória");
@@ -207,23 +196,6 @@ impl Disk {
     }
 
     // TODO: ver se o melhor a se fazer é criar um get_inode sem mut (apenas readonly)
-<<<<<<< Updated upstream
-    pub fn get_inode_by_name(&mut self, name: &str) -> &Option<Inode> {
-        let inode =  &self.super_block.iter().find(|i| match i {
-            Some(i) => {
-                let name_from_inode: String = i.name.iter().collect::<String>();
-                let name_from_inode: &str = name_from_inode.as_str().trim_matches(char::from(0));
-                let name = name.trim();
-                println!("    - lookup(name={:?}, name_from_inode={:?}, equals={})", name, name_from_inode, name_from_inode == name);
-                return name_from_inode == name;
-            },
-            None => false
-        });
-
-        match inode {
-            Some(inode) => inode,
-            None => &None
-=======
     pub fn get_inode_by_name(&self, parent_inode: usize, name: &str) -> Option<&Inode> {
         match &self.super_block[parent_inode] {
             Some(parent_inode) => {
@@ -259,7 +231,6 @@ impl Disk {
         match &self.super_block[block_index] {
             Some(inode) => &inode.references,
             None => panic!("fn get_references_from_inode: Inode não encontrado")
->>>>>>> Stashed changes
         }
     }
 
