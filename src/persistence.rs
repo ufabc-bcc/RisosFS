@@ -45,7 +45,8 @@ impl Disk {
         block_size: usize
     ) -> Disk {
         // Quantidade de blocos de memória
-        let block_quantity: usize = (memory_size_in_bytes / block_size) - 1;
+        // O -1 é referente ao "superblock", que possui o mesmo tamanho de um MemoryBlock
+        let memory_block_quantity: usize = (memory_size_in_bytes / block_size) - 1;
         // Está sendo considerado o tamanho do ponteiro do Box além do tamanho da struct de Inode
         let inode_size = mem::size_of::<Box<[Inode]>>() + mem::size_of::<Inode>();
         let max_files = block_size / inode_size;
@@ -79,14 +80,14 @@ impl Disk {
             };
 
             // Se o numero de blocos do disco existente for maior que o do disco a ser criado, termina a execuçao
-            if block_quantity < memory_blocks.len() {
+            if memory_block_quantity < memory_blocks.len() {
                 panic!("O disco existente e maior que o disco atual! Tente inicializar com um disco de tamanho maior!");
             }
         } else {
             File::create(&disk_file_path).expect("Erro criando arquivos para persistencia!");
             File::create(&inode_table_file_path).expect("Erro criando arquivos para persistencia!");
 
-            super_block = Vec::with_capacity(2);
+            super_block = Vec::with_capacity(1);
             memory_blocks = Vec::new();
 
             let ts = time::now().to_timespec();
@@ -116,7 +117,6 @@ impl Disk {
                 references: [None; 128]
             };
 
-            super_block.push(None);
             super_block.push(Some(initial_inode));
         };
 
@@ -126,7 +126,7 @@ impl Disk {
             super_block.push(value);
         }
 
-        for _ in memory_blocks.len()..block_quantity {
+        for _ in memory_blocks.len()..memory_block_quantity {
             let value: MemoryBlock = MemoryBlock { data: Option::None };
             memory_blocks.push(value);
         }
@@ -146,23 +146,22 @@ impl Disk {
         }
     }
 
-    // TODO: Idealmente, não teremos essa função em versões posteriores. Criado apenas para prosseguir com o milestone 5
-    pub fn get_inode_table(&self) -> &Box<[Option<Inode>]> {
-        &self.super_block
-    }
-
-    pub fn find_index_of_empty_inode(&self) -> Option<usize> {
-        for index in 1..self.super_block.len() - 1 {
+    /// Procura pelo vetor `super_block` um espaço de memória vazio (com `None`) e retorna o número `ino` disponível, caso haja algum.
+    /// Por convenção, o número de inode `ino` é o número do indíce que ele ocupa no vetor `super_block` + 1.
+    pub fn find_ino_available(&self) -> Option<u64> {
+        for index in 0..self.super_block.len() - 1 {
             if let Option::None = self.super_block[index] {
-                return Option::Some(index);
+                let ino = (index as u64) + 1;
+                return Option::Some(ino);
             }
         }
 
         Option::None
     }
 
+    /// Procura pelo vetor `memory_blocks` um espaço de memória vazio (com `None`) e retorna o índice do bloco, caso haja algum.
     pub fn find_index_of_empty_memory_block(&self) -> Option<usize> {
-        for index in 1..self.memory_blocks.len() - 1 {
+        for index in 0..self.memory_blocks.len() - 1 {
             if let Option::None = self.memory_blocks[index].data {
                 return Option::Some(index);
             }
@@ -171,42 +170,71 @@ impl Disk {
         Option::None
     }
 
-    pub fn find_empty_reference(&self, block_index: usize) -> Option<usize> {
-        match &self.super_block[block_index] {
+    /// Procura pelo vetor de `references` de um inode identificado pelo seu número `ino` o primeiro espaço vazio e retorna seu índice.
+    pub fn find_index_of_empty_reference_in_inode(&self, ino: u64) -> Option<usize> {
+        let index = (ino as usize) - 1;
+        match &self.super_block[index] {
             Some(inode) => inode.references.iter().position(|r| r == &None),
             None => panic!("Tentativa inválida de memória")
         }
     }
 
-    pub fn write_inode(&mut self, index: usize, inode: Inode) {
+    /// Salva o `inode` no vetor de `super_block`. Caso o número `ino` de Inode já exista, o dado é sobrescrito.
+    pub fn write_inode(&mut self, inode: Inode) {
         if mem::size_of_val(&inode) > self.block_size {
             println!("Não foi possível salvar o inode: tamanho maior que o tamanho do bloco de memória");
             return;
         }
 
+        let index = (inode.attributes.ino - 1) as usize;
         self.super_block[index] = Some(inode);
     }
 
-    // TODO: ver se o melhor a se fazer é criar um get_inode sem mut (apenas readonly)
-    pub fn get_inode(&mut self, index: usize) -> Option<&mut Inode> {
+    pub fn clear_memory_block(&mut self, index: usize) {
+        self.memory_blocks[index] = MemoryBlock { data: None };
+    }
+
+    pub fn clear_inode(&mut self, ino: u64) {
+        let index = (ino - 1) as usize;
+        self.super_block[index] = None;
+    }
+
+    /// Retorna a referência mutável de memória do `Inode`.
+    pub fn get_inode_as_mut(&mut self, ino: u64) -> Option<&mut Inode> {
+        let index = (ino as usize) - 1;
         match &mut self.super_block[index] {
             Some(inode) => Some(inode),
             None => None
         }
     }
 
-    // TODO: ver se o melhor a se fazer é criar um get_inode sem mut (apenas readonly)
-    pub fn get_inode_by_name(&self, parent_inode: usize, name: &str) -> Option<&Inode> {
-        match &self.super_block[parent_inode] {
-            Some(parent_inode) => {
-                for ino_ref in parent_inode.references.iter() {
-                    if let Some(ino_ref) = ino_ref {
-                        let index: usize = ino_ref.clone();
+    /// Retorna o `Inode` especificado pelo seu número `ino`.
+    pub fn get_inode(&self, ino: u64) -> Option<&Inode> {
+        let index = (ino as usize) - 1;
+        match &self.super_block[index] {
+            Some(inode) => Some(inode),
+            None => None
+        }
+    }
+    
+    /// Procura o Inode pelo nome dentro de um vetor de referências do Inode pai.
+    pub fn find_inode_in_references_by_name(&self, parent_inode_ino: u64, name: &str) -> Option<&Inode> {
+        let index = (parent_inode_ino as usize) - 1;
+        let parent_inode = &self.super_block[index];
 
-                        match &self.super_block[index] {
+        match parent_inode {
+            Some(parent_inode) => {
+                // Procura pelo vetor de references do Inode
+                for ino_ref in parent_inode.references.iter() {
+                    // Se houver algum dado dentro de ino_ref, então entra no bloco e pega esse conteúdo
+                    if let Some(ino) = ino_ref {
+                        let index: usize = (ino.clone() as usize) - 1;
+                        let inode_ref = &self.super_block[index];
+
+                        match inode_ref {
                             Some(inode) => {
                                 let name_from_inode: String = inode.name.iter().collect::<String>();
-                                let name_from_inode: &str = name_from_inode.as_str().trim_matches(char::from(0));
+                                let name_from_inode: &str = name_from_inode.as_str().trim_matches(char::from(0)); // Remoção de caracteres '\0'
                                 let name = name.trim();
                                 println!("    - lookup(name={:?}, name_from_inode={:?}, equals={})", name, name_from_inode, name_from_inode == name);
                                 
@@ -216,8 +244,6 @@ impl Disk {
                             },
                             None => panic!("fn get_inode_by_name: Inode reference não encontrado")
                         }
-
-                        
                     }
                 }
             },
@@ -227,8 +253,10 @@ impl Disk {
         return None;
     }
 
-    pub fn get_references_from_inode(&self, block_index: usize) -> &[Option<usize>; 128] {
-        match &self.super_block[block_index] {
+    /// Retorna o vetor de references do Inode
+    pub fn get_references_from_inode(&self, ino: u64) -> &[Option<usize>; 128] {
+        let index = (ino as usize) - 1;
+        match &self.super_block[index] {
             Some(inode) => &inode.references,
             None => panic!("fn get_references_from_inode: Inode não encontrado")
         }
@@ -259,20 +287,14 @@ impl Disk {
         return &memory_block.data;
     }
 
-    /// Escreve um conteúdo em string em um bloco de memória
-    pub fn write_content(&mut self, block_index: usize, content: &str) {
-        let content: Box<[u8]> = Box::from(content.as_bytes());
-        self.write_content_as_bytes(block_index, content);
-    }
-
     /// Escreve dados em bytes em um bloco de memória
     ///
     ///  # Exemplos
     /// 
     /// ```
     /// let content: Box<[u8]> = Box::from(content.as_bytes());
-    /// let disk: Disk = Disk::new(1024 * 1024, 1024);
-    /// disk.write_content_as_bytes(1, &content);
+    /// let disk: Disk = Disk::new(args);
+    /// disk.write_content_as_bytes(1, content);
     /// ```
     /// 
     /// Somente é gravado se for um local de memória válido
@@ -281,25 +303,19 @@ impl Disk {
             panic!("Não foi possível salvar o conteúdo do arquivo, pois excede o tamanho do bloco de memória {}", self.block_size);
         }
 
-        let memory_block = MemoryBlock { data: Option::Some(content) };
+        let memory_block = MemoryBlock { data: Some(content) };
         self.memory_blocks[block_index] = memory_block;
     }
 
-    pub fn write_reference_in_inode(&mut self, ino: usize, ref_index: usize, ref_content: usize) {
-        match &mut self.super_block[ino] {
+    /// Escreve uma referência no vetor de references de um Inode de número ino
+    pub fn write_reference_in_inode(&mut self, ino: u64, ref_index: usize, ref_content: usize) {
+        let index = (ino as usize) - 1;
+        match &mut self.super_block[index] {
             Some(inode) => {
                 inode.references[ref_index] = Some(ref_content);
             },
             None => panic!("fn write_reference_in_inode: Inode não encontrado!")
         }
-    }
-
-    pub fn clear_memory_block(&mut self, block_index: usize) {
-        self.memory_blocks[block_index].data = None;
-    }
-
-    pub fn clear_inode(&mut self, block_index: usize) {
-        self.super_block[block_index] = None;
     }
 
     pub fn write_to_disk(&mut self) {
