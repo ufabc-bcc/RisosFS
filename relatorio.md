@@ -12,7 +12,7 @@
 **Alunos:** [Gustavo Murayama](mailto:gustavo.murayama@aluno.ufabc.edu.br), [Lucas Tornai de Carvalho](mailto:lucas.tornai@aluno.ufabc.edu.br)
 **RA:** 21028214, 21058912
 
-**Abril, 2019**
+**Maio, 2019**
 
 ### Funcionalidades da Aplicação
 
