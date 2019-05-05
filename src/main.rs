@@ -5,6 +5,7 @@ mod persistence;
 mod serialization;
 
 use fuse::{Filesystem, Request, ReplyCreate, ReplyEmpty, ReplyAttr, ReplyEntry, ReplyOpen, ReplyData, ReplyDirectory, ReplyWrite, FileType, FileAttr};
+// https://www.gnu.org/software/libc/manual/html_node/Error-Codes.html
 use libc::{ENOSYS, ENOENT, EIO, EISDIR, ENOSPC};
 use time::{Timespec};
 use std::env;
@@ -34,8 +35,9 @@ impl RisosFS {
 
 impl Drop for RisosFS {
     fn drop(&mut self) {
-        println!("cleanup");
+        println!("\nsaving content...");
         &self.disk.write_to_disk();
+        println!("success!");
     }
 }
 
@@ -48,18 +50,17 @@ impl Filesystem for RisosFS {
         name: &OsStr, 
         reply: ReplyEntry
     ) {
-        println!("lookup(name={:?})", name);
+        println!("lookup(parent={:?}, name={:?})", parent, name);
         let file_name = name.to_str().unwrap();
-
-        let inode = self.disk.get_inode_by_name(parent as usize, file_name);
+        let inode = self.disk.find_inode_in_references_by_name(parent, file_name);
 
         match inode {
             Some(inode) => {
                 let ttl = time::now().to_timespec();
-                println!("        - lookup(attr={:?})", inode.attributes);
+                println!("        - lookup(parent={:?}, attr={:?})", parent, inode.attributes);
                 reply.entry(&ttl, &inode.attributes, 0)
             },
-            None => reply.error(ENOENT)
+            None => reply.error(ENOENT) // “No such file or directory.”
         }
     }
 
@@ -74,21 +75,29 @@ impl Filesystem for RisosFS {
     ) {
         println!("create(name={:?}, mode={}, flags={})", name, mode, flags);
 
-        let ref_index = self.disk.find_empty_reference(parent as usize);
+        let ref_index = self.disk.find_index_of_empty_reference_in_inode(parent);
         // Se não houver mais espaço no vetor de references, indica que não é possível alocar mais arquivos dentro da pasta
         if ref_index == None {
             println!("Não é possível criar mais arquivos nesse diretório!");
-            reply.error(EIO);
+            reply.error(EIO); // “Input/output error.”
             return;
         }
 
-        let inode_index = self.disk.find_index_of_empty_inode().unwrap(); // TODO: necessário tratar
-        let memory_block_index = self.disk.find_index_of_empty_memory_block().unwrap(); // TODO: necessário tratar
+        let ino_available = self.disk.find_ino_available();
+        let memory_block_index = self.disk.find_index_of_empty_memory_block();
+
+        if ino_available == None || memory_block_index == None {
+            reply.error(ENOSPC); // “No space left on device.”
+            return;
+        }
+
+        let ino_available = ino_available.unwrap();
+        let memory_block_index = memory_block_index.unwrap();
 
         let ts = time::now().to_timespec();
 
         let attr = FileAttr {
-            ino: inode_index as u64,
+            ino: ino_available,
             size: 0,
             blocks: 1,
             atime: ts,
@@ -100,6 +109,8 @@ impl Filesystem for RisosFS {
             nlink: 0,
             uid: 0,
             gid: 0,
+
+
             rdev: 0,
             flags,
         };
@@ -116,15 +127,15 @@ impl Filesystem for RisosFS {
             references: [None; 128]
         };
 
-        self.disk.write_inode(inode_index, inode);
-        self.disk.write_content(memory_block_index, &"");
+        self.disk.write_inode(inode);
+        let content: Box<[u8]> = Box::default();
+        self.disk.write_content_as_bytes(memory_block_index, content);
 
         // Adiciona a referência de inode criado no vetor references do inode "pai" (do diretório)
         let ref_index = ref_index.unwrap();
-        let parent_inode = self.disk.get_inode(parent as usize).unwrap();
-        parent_inode.references[ref_index] = Some(inode_index);
+        self.disk.write_reference_in_inode(parent, ref_index, ino_available as usize);
 
-        reply.created(&ts, &attr, 1, inode_index as u64, flags)
+        reply.created(&ts, &attr, 1, ino_available, flags)
     }
 
     fn fsync(
@@ -157,7 +168,7 @@ impl Filesystem for RisosFS {
         reply: ReplyAttr
     ) {
         println!("setattr(ino={})", ino);
-        let inode = self.disk.get_inode(ino as usize);
+        let inode = self.disk.get_inode_as_mut(ino);
         
         match inode {
             Some(inode) => {
@@ -185,7 +196,7 @@ impl Filesystem for RisosFS {
     ) {
         println!("getattr(ino={})", ino);
 
-        match self.disk.get_inode(ino as usize) {
+        match self.disk.get_inode(ino) {
             Some(inode) => {
                 let ttl = time::now().to_timespec();
                 reply.attr(&ttl, &inode.attributes);
@@ -199,15 +210,15 @@ impl Filesystem for RisosFS {
         _req: &Request, 
         parent: u64, 
         name: &OsStr, 
-        mode: u32, 
+        _mode: u32, 
         reply: ReplyEntry
     ) {
-        let reference_index = self.disk.find_empty_reference(parent as usize);
+        let reference_index = self.disk.find_index_of_empty_reference_in_inode(parent);
         
         match reference_index {
             Some(reference_index) => {
 
-                let ino = self.disk.find_index_of_empty_inode();
+                let ino = self.disk.find_ino_available();
                 match ino {
                     Some(ino) => {
                         let ts = time::now().to_timespec();
@@ -240,8 +251,8 @@ impl Filesystem for RisosFS {
                             references: [None; 128]
                         };
 
-                        self.disk.write_inode(ino, inode);
-                        self.disk.write_reference_in_inode(parent as usize, reference_index, ino);
+                        self.disk.write_inode(inode);
+                        self.disk.write_reference_in_inode(parent, reference_index, ino as usize);
 
                         reply.entry(&ts, &attr, 0);
                     },
@@ -275,7 +286,7 @@ impl Filesystem for RisosFS {
     ) {
         println!("open(ino={}, flags={})", ino, flags);
 
-        let inode = self.disk.get_inode(ino as usize);
+        let inode = self.disk.get_inode(ino);
 
         match inode {
             Some(_) => reply.opened(ino, flags),
@@ -312,17 +323,20 @@ impl Filesystem for RisosFS {
     ) {
         println!("readdir(ino={}, fh={}, offset={})", ino, fh, offset);
 
+        // Pequeno "ajuste técnico" para mostrar o "." e ".." na primeira pasta.
         if ino == 1 {
             if offset == 0 {
                 reply.add(1, 0, FileType::Directory, ".");
-                reply.add(1, 0, FileType::Directory, "..");
+                reply.add(1, 1, FileType::Directory, "..");
             }
         }
 
-        let inodes = self.disk.get_inode_table();
-        let inode = &inodes[ino as usize];
+        // Inode "pai" (o diretório)
+        let inode: Option<&Inode> = self.disk.get_inode(ino);
 
-        if mem::size_of_val(inode) == offset as usize {
+        // Offset representado como o tamanho inteiro do Inode, pois de uma só vez será lido todo o conteúdo
+        // do diretório. Caso o offset seja o mesmo que o tamanho do inode parent, então dá um "ok" e retorna o conteúdo.
+        if mem::size_of_val(&inode) == offset as usize {
             reply.ok();
             return;
         }
@@ -330,10 +344,12 @@ impl Filesystem for RisosFS {
         match inode {
             Some(inode) => {
                 let references = inode.references;
+                // Percorre pelo vetor de referências do Inode pai. Cada posição indica um arquivo que está presente
+                // no diretório.
                 for ino in references.iter() {
 
                     if let Some(ino) = ino {
-                        let inode = &inodes[*ino];
+                        let inode = self.disk.get_inode(*ino as u64);
 
                         if let Some(inode_data) = inode {
                             if inode_data.attributes.ino == 1 {
@@ -342,10 +358,9 @@ impl Filesystem for RisosFS {
 
                             let name = inode_data.name.iter().collect::<String>();
                             println!("    - readdir(ino={}, name={})", inode_data.attributes.ino, name);
-                            let offset = mem::size_of_val(inode) as i64;
+                            let offset = mem::size_of_val(&inode) as i64;
                             reply.add(inode_data.attributes.ino, offset, inode_data.attributes.kind, name);
                         }
-
                     }
                 }
 
@@ -366,13 +381,14 @@ impl Filesystem for RisosFS {
         reply: ReplyWrite
     ) {
         println!("write(ino={}, offset={}, data={})", ino, offset, data.len());
-        let inode = self.disk.get_inode(ino as usize);
+        let inode = self.disk.get_inode_as_mut(ino);
         let content: Box<[u8]> = data.to_vec().into_boxed_slice();
 
         match inode {
             Some(inode) => {
                 inode.attributes.size = data.len() as u64;
-                self.disk.write_content_as_bytes(ino as usize, content);
+                let index = (ino as usize) - 1;
+                self.disk.write_content_as_bytes(index, content);
                 reply.written(data.len() as u32);
             },
             None => {
@@ -390,16 +406,17 @@ impl Filesystem for RisosFS {
         reply: ReplyEmpty
     ) {
         let name = name.to_str().unwrap();
-        let inode = self.disk.get_inode_by_name(parent as usize, name);
+        let inode = self.disk.find_inode_in_references_by_name(parent, name);
 
         match inode {
             Some(inode) => {
                 if inode.attributes.kind == FileType::Directory {
                     reply.error(EISDIR);
                 } else {
-                    let ino = inode.attributes.ino as usize;
+                    let ino = inode.attributes.ino;
+                    let memory_block_index = (ino as usize) - 1;
                     self.disk.clear_inode(ino);
-                    self.disk.clear_memory_block(ino);
+                    self.disk.clear_memory_block(memory_block_index);
                     reply.ok()
                 }
             },
