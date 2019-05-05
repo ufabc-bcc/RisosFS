@@ -1,7 +1,7 @@
 
 # Universidade Federal do ABC
 
-**2019.Q1 MCZA020-13 - Programação Paralela**
+**2019.Q1 MCTA026-13 - Sistemas Operacionais**
 
 **Professores:** [Emilio Francesquini](http://professor.ufabc.edu.br/~e.francesquini), [Fernando Teubl](http://professor.ufabc.edu.br/~fernando.teubl/)
 
