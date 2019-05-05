@@ -19,6 +19,8 @@ curl https://sh.rustup.rs -sSf | sh
 
 Para compilar o programa, basta entrar no diretório raíz e executar o comando: `cargo build`.
 
+![Build RisosFS](./buildrisos.png)
+
 Após compilado, para execução, basta utilizar o comando `cargo run <diretório>`, onde <diretório> é onde se deseja executar o FS.
 
 ![Execução do RisosFS](./runrisos.png)
