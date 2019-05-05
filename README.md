@@ -35,4 +35,4 @@ Para utilizar o FS, abra outro terminal, entre na pasta onde o FS foi executado 
 
 ## Mais informações
 
-Leia o [relatório](./relatorio.md)
+Leia o [relatório](https://github.com/ufabc-bcc/2019_Q1_SO_BrisaFS-risosfs/blob/master/relatorio.md)
