@@ -21,7 +21,11 @@ Para compilar o programa, basta entrar no diretório raíz e executar o comando:
 
 Após compilado, para execução, basta utilizar o comando `cargo run <diretório>`, onde <diretório> é onde se deseja executar o FS.
 
-Para utilizar o FS, abra outro terminal, entre na pasta onde o FS foi executado e utilize os comandos.
+![Execução do RisosFS](./runrisos.png)
+
+Para utilizar o FS, abra outro terminal, entre na pasta onde o FS foi executado e utilize os comandos disponíveis.
+
+![ls RisosFS](./lsrisos.png)
 
 ## Comandos disponíveis
 
