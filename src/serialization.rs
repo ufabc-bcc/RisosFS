@@ -2,6 +2,9 @@ use serde::{Serialize, Deserialize};
 use fuse::{FileAttr, FileType};
 use time::Timespec;
 
+
+// Mostra para o pacote serde como serializar as structs internas da struct FileAttr
+
 #[derive(Serialize, Deserialize)]
 #[serde(remote = "Timespec")]
 pub struct TimespecDef {
