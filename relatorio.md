@@ -10,6 +10,7 @@
 ## Projeto de Programação - BrisaFS, um sistema de arquivos baseado em FUSE
 
 **Alunos:** [Gustavo Murayama](mailto:gustavo.murayama@aluno.ufabc.edu.br), [Lucas Tornai de Carvalho](mailto:lucas.tornai@aluno.ufabc.edu.br)
+
 **RA:** 21028214, 21058912
 
 **Maio, 2019**
@@ -22,22 +23,22 @@ O objetivo deste projeto foi o de desenvolver um sistema de arquivos (FS) utiliz
 
 #### Linguagem Rust
 
-A escolha da linguagem Rust foi feita por afinidade com a linguagem e por sua particularidade de segurança em questão de ponteiros, onde não permite ao programador cometer erros básicos de difícil identificação como ocorre por exemplo na linguagem C. Por possuir uma biblioteca FUSE (apesar de incompleta se comparada à biblioteca em C), para as implementações necessárias neste projeto era o suficiente.
+A escolha da linguagem Rust foi feita por afinidade com a linguagem e por sua particularidade de segurança em questão de ponteiros, que não permite ao programador cometer erros básicos de difícil identificação como ocorre por exemplo na linguagem C. Por possuir uma biblioteca FUSE (apesar de incompleta se comparada à biblioteca em C), para as implementações necessárias neste projeto era o suficiente.
 
 ### Conversão de C para Rust
 
-O principal ponto de diferença para traduzir de C para Rust foi no vetor de blocos de memória, onde, na implementação em C disponibilizada pelo professor, se utilizada de uma mecânica de ponteiros onde foram criados dois ponteiros que apontavam para este mesmo vetor, porém um era um ponteiro de bytes enquanto outro era um ponteiro de inodes. Em rust, isto não era possível, e portanto foram criadas duas structs, uma de inodes e uma de blocos de memória, e dois vetores separados para cada uma das structs.
-O restante apenas se deu pela tradução direta das funções entre as linguagens, já que as funções principais do FUSE ainda não estavam implementadas.
+A principal diferença entre a implementação em C para a implementação em Rust foi o vetor de blocos de memória. No BrisaFS disponibilizado pelo professor, é utilizado uma mecânica com dois ponteiros que apontavam para este mesmo vetor, porém o primeiro era um ponteiro de bytes enquanto outro era um ponteiro de struct de inodes. Em Rust, isto não era possível, e portanto foram criadas duas structs, uma de inodes e uma de blocos de memória, e dois vetores separados para cada uma das structs.
+O restante da conversão apenas se deu pela tradução direta das funções entre as linguagens, uma vez que algumas funções do FUSE ainda não estavam implementadas.
 
 ### Sistema de arquivos
 
-Para a implementação do sistema de arquivos, como dito na seção anterior, foram criadas duas structs, `Inode` e `MemoryBlock`, sendo que a struct Inode guarda os dados de Inodes, enquanto a struct MemoryBlock guarda os dados de arquivos (os dados propriamente ditos).
+Para a implementação do sistema de arquivos, como dito na seção anterior, foram criadas duas structs: `Inode` e `MemoryBlock`. A struct Inode guarda os dados de Inodes, enquanto a struct MemoryBlock guarda os dados de arquivos em bytes (os dados propriamente ditos).
 
-Para implementação das funções do FS foram implementadas as funções pré-determinadas da interface FUSE.
+Para implementação das funções do FS, foram implementadas as funções pré-determinadas da interface FUSE.
 
-Já para a persistência, que deveria ser feita em um arquivo, na verdade são utilizados dois arquivos. Um deles, `.inodes.risos` guarda o vetor de inodes, enquanto o arquivo `.disco.risos` guarda o vetor de dados do FS. Ponto importante é a serialização destes dados para salvar num arquivo em disco, que será discutido em uma próxima seção.
+Já para a persistência, que deveria ser feita em um arquivo, são utilizados dois arquivos. Um deles, `.inodes.risos`, guarda o vetor de inodes, enquanto o arquivo `.disco.risos` guarda o vetor de dados do FS. Ponto importante é a serialização destes dados para salvar num arquivo em disco, que será discutido em uma próxima seção.
 
-O arquivo `main.rs` possui as funções necessárias para o funcionamento do sistema, ou seja, a implementação da interface FUSE e a função `main()`, que executa o sistema. O arquivo `persistence.rs` possui as funções para persistência do FS em um arquivo no disco e funções auxiliares a isto, como a implementação do "disco", a leitura/escrita nos arquivos que representam este disco e funções para encontrar blocos livres.
+O arquivo `main.rs` possui as funções necessárias para o funcionamento do sistema, ou seja, a implementação da interface FUSE e a função `main()`, que executa o sistema. O arquivo `persistence.rs` é uma abstração de um "disco virtual", possuindo as funções para persistência do FS em um arquivo no disco e funções auxiliares a isto, como o vetor de `Inode` e o vetor de `MemoryBlock`, a leitura/escrita nos arquivos que representam este disco e funções para encontrar blocos livres.
 
 ## Biblioteca serde
 
@@ -60,4 +61,80 @@ Para a execução, deve-se utilizar o comando `cargo run <diretório>` dentro da
 
 ###  Funcionamento do programa
 
+A primeira vez que o programa for rodado, ele iniciará todos os processos para criação do `.inode.risos` e `.disco.risos`, alocará a memória necessária e rodará automaticamente algumas funções do FS.
+
+```
+Done =)
+
+Tamanho do disco (kbytes): 1048576
+Tamanho do bloco de memória (kbytes): 2432
+Quantidade máxima de arquivos (Inode 2432 bytes): 1024
+RisosFS started!
+lookup(parent=1, name="BDMV")
+getattr(ino=1)
+lookup(parent=1, name=".xdg-volume-info")
+lookup(parent=1, name="autorun.inf")
+lookup(parent=1, name=".Trash")
+readdir(ino=1, fh=0, offset=0)
+lookup(parent=1, name=".Trash-1000")
+readdir(ino=1, fh=0, offset=1)
+getattr(ino=1)
+readdir(ino=1, fh=0, offset=0)
+readdir(ino=1, fh=0, offset=1)
+lookup(parent=1, name="autorun.inf")
+getattr(ino=1)
+```
+
+Para uma melhor visualização do que está sendo chamado, o código executa um `println!` com algumas informações pertinentes. Abaixo estão alguns exemplos de execução de comandos no terminal e o resultado de cada operação.
+
+**Terminal**
+```
+$ ls -la
+total 4
+drwxr-xr-x 0 root      root         0 May  5 21:05 .
+drwxr-xr-x 3 gmurayama gmurayama 4096 May  2 23:37 
+```
+**RisosFS**
+```
+readdir(ino=1, fh=0, offset=0)
+getattr(ino=1)
+readdir(ino=1, fh=0, offset=1)
+```
+
+**Terminal**
+```
+$ echo teste > risos_fs
+```
+
+**RisosFS**
+```
+readdir(ino=1, fh=0, offset=1)
+lookup(parent=1, name="risos_fs")
+create(name="risos_fs", mode=33188, flags=33345)
+write(ino=2, offset=0, data=6)
+```
+
+**Terminal**
+```
+$ mkdir dir_rs
+```
+
+**RisosFS**
+```
+getattr(ino=1)
+lookup(parent=1, name="dir_rs")
+    - lookup(name="dir_rs", name_from_inode="risos_fs", equals=false)
+```
+
+Cada struct de `Inode` possui um vetor de `references`. No caso de uma pasta, esse vetor guarda o número `ino` de cada inode pertencente a esse diretório (que vamos nos referir como "inode pai").
+
+Quando é acionado o método de `readdir`, no parâmetro `parent` é passado o número `ino` do inode pai e é feito uma varredura no disco para saber quais os arquivos que devemos mostrar.
+
+O `create` cria um novo arquivo e salva o Inode e o seu conteúdo (inicialmente vazio) no disco virtual. No método `write`, através do `ino` passado como argumento, localizamos o arquivo criado e escrevemos o conteúdo de array de bytes `[u8]` no `MemoryBlock` correspondente ao Inode.
+
 ### Limitações
+
+- Há um limite do quanto o arquivo pode ter de tamanho. Atualmente, o arquivo pode ter no máximo 2432 kbytes (~ 2MB).
+- O número máximo de arquivos que podem existir no disco virtual é 1024.
+- Não é possível criar links simbólicos
+- Não é possível remover diretórios
