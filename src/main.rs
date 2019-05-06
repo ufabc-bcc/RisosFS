@@ -417,6 +417,7 @@ impl Filesystem for RisosFS {
                     let memory_block_index = (ino as usize) - 1;
                     self.disk.clear_inode(ino);
                     self.disk.clear_memory_block(memory_block_index);
+                    self.disk.clear_reference_in_inode(parent, ino as usize);
                     reply.ok()
                 }
             },

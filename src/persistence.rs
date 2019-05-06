@@ -199,6 +199,27 @@ impl Disk {
         self.super_block[index] = None;
     }
 
+    /// Remove a referência do vetor de references de um Inode
+    pub fn clear_reference_in_inode(&mut self, ino: u64, ref_value: usize) {
+        let index = (ino - 1) as usize;
+        let inode: &mut Option<Inode> = &mut self.super_block[index];
+        
+        match inode {
+            Some(inode) => {
+                let reference_index: Option<usize> = inode.references.iter().position(|r| match r {
+                    Some(reference) => *reference == ref_value,
+                    None => false
+                });
+
+                match reference_index {
+                    Some(reference_index) => inode.references[reference_index] = None,
+                    None => panic!("fn clear_reference_in_inode: Referência não encontrada no Inode.")
+                }
+            },
+            None => panic!("fn clear_reference_in_inode: Tentativa de remoção de referência em um Inode vazio.")
+        }
+    }
+
     /// Retorna a referência mutável de memória do `Inode`.
     pub fn get_inode_as_mut(&mut self, ino: u64) -> Option<&mut Inode> {
         let index = (ino as usize) - 1;
