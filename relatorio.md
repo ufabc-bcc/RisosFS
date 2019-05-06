@@ -145,8 +145,6 @@ fusermount -u <directory>
 - O número máximo de arquivos que podem existir no disco virtual é 1024.
 - Não é possível criar links simbólicos
 - Se o Filesystem for interrompido de maneira inesperada, os dados não são salvos. Apenas é salvo quando dado o unmount apropriado.
-- Não é possível remover diretórios
-- Se o Filesystem for interrompido de maneira inesperada, os dados não são salvos. Apenas é salvo quando dado o unmount apropriado.
 
 ### Biliografia
 [1]: [24 Days of Rust](https://zsiciarz.github.io/24daysofrust/)
