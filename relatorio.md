@@ -58,6 +58,8 @@ Para compilar o programa, deve-se entrar no diretório raíz e executar o comand
 
 Para a execução, deve-se utilizar o comando `cargo run <diretório>` dentro da pasta raíz, onde <diretório> é onde se deseja executar o FS. `run` é o comando que executa o programa se utilizando dos arquivos gerados na pasta target.
 
+Para executar a última versão lançada, acessar a página de [releases](https://github.com/ufabc-bcc/2019_Q1_SO_BrisaFS-risosfs/releases) e fazer o download do arquivo `risos_fs`.
+
 ####  Funcionamento do programa
 
 A primeira vez que o programa for rodado, ele iniciará todos os processos para criação do `.inode.risos` e `.disco.risos`, alocará a memória necessária e rodará automaticamente algumas funções do FS.
