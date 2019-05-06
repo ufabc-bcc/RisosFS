@@ -4,7 +4,7 @@ Sistema de Arquivos desenvolvido em [Rust](https://www.rust-lang.org/) para a di
 
 ## Objetivo
 
-Implementação de um sistema de arquivos que roda em cima de um disco "virtual" utilizando o FUSE, aplicando os conhecimentos adquiridos durante as aulas de Sistemas Operacionais e atendendo os [requisitos propostos](https://github.com/ufabc-bcc/2019_Q1_SO_BrisaFS-risosfs) pelo projeto.
+Implementação de um sistema de arquivos que roda em cima de um disco "virtual" utilizando o FUSE, aplicando os conhecimentos adquiridos durante as aulas de Sistemas Operacionais e atendendo os [requisitos propostos](http://professor.ufabc.edu.br/~e.francesquini/2019.q1.so/projeto/index.html) pelo projeto.
 
 ## Instalação
 
