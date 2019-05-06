@@ -40,7 +40,7 @@ Já para a persistência, que deveria ser feita em um arquivo, são utilizados d
 
 O arquivo `main.rs` possui as funções necessárias para o funcionamento do sistema, ou seja, a implementação da interface FUSE e a função `main()`, que executa o sistema. O arquivo `persistence.rs` é uma abstração de um "disco virtual", possuindo as funções para persistência do FS em um arquivo no disco e funções auxiliares a isto, como o vetor de `Inode` e o vetor de `MemoryBlock`, a leitura/escrita nos arquivos que representam este disco e funções para encontrar blocos livres.
 
-## Biblioteca serde
+### Biblioteca serde
 
 A biblioteca utilizada para a serialização e desserialização das structs foi a [serde](https://serde.rs/), que é bem estabelecida e consegue serializar e deserializar qualquer implementação que contenha tipos primitivos.
 
@@ -132,9 +132,16 @@ Quando é acionado o método de `readdir`, no parâmetro `parent` é passado o n
 
 O `create` cria um novo arquivo e salva o Inode e o seu conteúdo (inicialmente vazio) no disco virtual. No método `write`, através do `ino` passado como argumento, localizamos o arquivo criado e escrevemos o conteúdo de array de bytes `[u8]` no `MemoryBlock` correspondente ao Inode.
 
+Para interromper a execução do RisosFS, é necessário dar unmount no diretório utilizado. No Linux, o comando é:
+
+```
+fusermount -u <directory>
+```
+
 ### Limitações
 
 - Há um limite do quanto o arquivo pode ter de tamanho. Atualmente, o arquivo pode ter no máximo 2432 kbytes (~ 2MB).
 - O número máximo de arquivos que podem existir no disco virtual é 1024.
 - Não é possível criar links simbólicos
 - Não é possível remover diretórios
+- Se o Filesystem for interrompido de maneira inesperada, os dados não são salvos. Apenas é salvo quando dado o unmount apropriado.
