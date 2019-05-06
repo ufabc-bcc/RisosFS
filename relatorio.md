@@ -9,10 +9,8 @@
 
 ## Projeto de Programação - BrisaFS, um sistema de arquivos baseado em FUSE
 
-**Alunos:** [Gustavo Murayama](mailto:gustavo.murayama@aluno.ufabc.edu.br), [Lucas Tornai de Carvalho](mailto:lucas.tornai@aluno.ufabc.edu.br)
-
-**RA:** 21028214, 21058912
-
+**Alunos:** [Gustavo Murayama](mailto:gustavo.murayama@aluno.ufabc.edu.br), [Lucas Tornai de Carvalho](mailto:lucas.tornai@aluno.ufabc.edu.br)  
+**RA:** 21028214, 21058912  
 **Maio, 2019**
 
 ### Funcionalidades da Aplicação
@@ -145,8 +143,9 @@ fusermount -u <directory>
 - O número máximo de arquivos que podem existir no disco virtual é 1024.
 - Não é possível criar links simbólicos
 - Se o Filesystem for interrompido de maneira inesperada, os dados não são salvos. Apenas é salvo quando dado o unmount apropriado.
+- Não há escalabilidade no FS como está atualmente, sem o aumento arbitrário do disco e os arquivos puderam ocupar mais de um bloco de memória. Seria necessário resolver as issues [#7](https://github.com/ufabc-bcc/2019_Q1_SO_BrisaFS-risosfs/issues/7), [#8](https://github.com/ufabc-bcc/2019_Q1_SO_BrisaFS-risosfs/issues/8), [#9](https://github.com/ufabc-bcc/2019_Q1_SO_BrisaFS-risosfs/issues/9) e [#10](https://github.com/ufabc-bcc/2019_Q1_SO_BrisaFS-risosfs/issues/10).
 
 ### Biliografia
-[1]: [24 Days of Rust](https://zsiciarz.github.io/24daysofrust/)
-[2]: [The Rust Programming Language Book](https://doc.rust-lang.org/stable/book/title-page.html)
-[3]: [serde](https://serde.rs/)
+[1]: [24 Days of Rust](https://zsiciarz.github.io/24daysofrust/)  
+[2]: [The Rust Programming Language Book](https://doc.rust-lang.org/stable/book/title-page.html)  
+[3]: [serde](https://serde.rs/)  
