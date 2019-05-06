@@ -109,8 +109,6 @@ impl Filesystem for RisosFS {
             nlink: 0,
             uid: 0,
             gid: 0,
-
-
             rdev: 0,
             flags,
         };
@@ -121,11 +119,13 @@ impl Filesystem for RisosFS {
         let mut name_char = ['\0'; 64];
         name_char[..name.len()].clone_from_slice(&name);
 
-        let inode = Inode {
+        let mut inode = Inode {
             name: name_char,
             attributes: attr,
             references: [None; 128]
         };
+
+        inode.references[0] = Some(memory_block_index);
 
         self.disk.write_inode(inode);
         let content: Box<[u8]> = Box::default();
