@@ -31,7 +31,7 @@ Para utilizar o FS, abra outro terminal, entre na pasta onde o FS foi executado 
 
 ## Comandos disponíveis
 
-`ls`, `mkdir`, `chown`, `chgrp`
+`ls`, `mkdir`, `chown`, `chgrp`, `rm [-rf]`
 
 ## Mais informações
 

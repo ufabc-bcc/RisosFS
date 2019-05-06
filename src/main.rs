@@ -263,18 +263,26 @@ impl Filesystem for RisosFS {
         }
     }
 
-    // TODO: implementar mknod
-    fn mknod(
+    fn rmdir(
         &mut self, 
         _req: &Request, 
-        _parent: u64, 
+        parent: u64, 
         name: &OsStr, 
-        mode: u32, 
-        rdev: u32, 
-        reply: ReplyEntry
-    ) { 
-        println!("mknod(name={:?}, mode={}, rdev={}) -> NOT IMPLEMENTED", name, mode, rdev);
-        reply.error(ENOSYS);
+        reply: ReplyEmpty
+    ) {
+        let name = name.to_str().unwrap();
+        let inode = self.disk.find_inode_in_references_by_name(parent, name);
+
+        match inode {
+            Some(inode) => {
+                let ino = inode.attributes.ino;
+                self.disk.clear_reference_in_inode(parent, ino as usize);
+                self.disk.clear_inode(ino);
+
+                reply.ok();
+            },
+            None => reply.error(EIO) // "Input/output error."
+        }
     }
 
     fn open(

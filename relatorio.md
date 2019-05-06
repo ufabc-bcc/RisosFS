@@ -143,5 +143,4 @@ fusermount -u <directory>
 - Há um limite do quanto o arquivo pode ter de tamanho. Atualmente, o arquivo pode ter no máximo 2432 kbytes (~ 2MB).
 - O número máximo de arquivos que podem existir no disco virtual é 1024.
 - Não é possível criar links simbólicos
-- Não é possível remover diretórios
 - Se o Filesystem for interrompido de maneira inesperada, os dados não são salvos. Apenas é salvo quando dado o unmount apropriado.
