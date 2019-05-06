@@ -25,12 +25,13 @@ O objetivo deste projeto foi o de desenvolver um sistema de arquivos (FS) utiliz
 
 A escolha da linguagem Rust foi feita por afinidade com a linguagem e por sua particularidade de segurança em questão de ponteiros, que não permite ao programador cometer erros básicos de difícil identificação como ocorre por exemplo na linguagem C. Por possuir uma biblioteca FUSE (apesar de incompleta se comparada à biblioteca em C), para as implementações necessárias neste projeto era o suficiente.
 
-### Conversão de C para Rust
+#### Conversão de C para Rust
 
 A principal diferença entre a implementação em C para a implementação em Rust foi o vetor de blocos de memória. No BrisaFS disponibilizado pelo professor, é utilizado uma mecânica com dois ponteiros que apontavam para este mesmo vetor, porém o primeiro era um ponteiro de bytes enquanto outro era um ponteiro de struct de inodes. Em Rust, isto não era possível, e portanto foram criadas duas structs, uma de inodes e uma de blocos de memória, e dois vetores separados para cada uma das structs.
-O restante da conversão apenas se deu pela tradução direta das funções entre as linguagens, uma vez que algumas funções do FUSE ainda não estavam implementadas.
+Isto ocorre pois Rust possui o sistema de [Ownership](https://doc.rust-lang.org/stable/book/ch04-00-understanding-ownership.html)[2], que é um mecanismo que entre outras coisas previne o uso irresponsável de ponteiros, o que restringe este tipo de manobra que pode ser feita em linguagens como C.
+O restante da conversão apenas se deu pela tradução direta das funções entre as linguagens, uma vez que algumas funções do FUSE ainda não estavam implementadas, usando como base ao início um guia para utilização da biblioteca FUSE em Rust disponível no [24 Days of Rust](https://zsiciarz.github.io/24daysofrust/book/vol1/day15.html)[1].
 
-### Sistema de arquivos
+#### Sistema de arquivos
 
 Para a implementação do sistema de arquivos, como dito na seção anterior, foram criadas duas structs: `Inode` e `MemoryBlock`. A struct Inode guarda os dados de Inodes, enquanto a struct MemoryBlock guarda os dados de arquivos em bytes (os dados propriamente ditos).
 
@@ -40,9 +41,9 @@ Já para a persistência, que deveria ser feita em um arquivo, são utilizados d
 
 O arquivo `main.rs` possui as funções necessárias para o funcionamento do sistema, ou seja, a implementação da interface FUSE e a função `main()`, que executa o sistema. O arquivo `persistence.rs` é uma abstração de um "disco virtual", possuindo as funções para persistência do FS em um arquivo no disco e funções auxiliares a isto, como o vetor de `Inode` e o vetor de `MemoryBlock`, a leitura/escrita nos arquivos que representam este disco e funções para encontrar blocos livres.
 
-### Biblioteca serde
+#### Biblioteca serde
 
-A biblioteca utilizada para a serialização e desserialização das structs foi a [serde](https://serde.rs/), que é bem estabelecida e consegue serializar e deserializar qualquer implementação que contenha tipos primitivos.
+A biblioteca utilizada para a serialização e desserialização das structs foi a [serde](https://serde.rs/)[3], que é bem estabelecida e consegue serializar e deserializar qualquer implementação que contenha tipos primitivos.
 
 Para isto, no entanto foi necessária a serialização de todas as structs contidas na struct FileAttr, inerente à biblioteca rust, e isto foi feito no arquivo `serializarion.rs`, que é o arquivo no qual são serializadas as structs internas para permitir a serialização da externa.
 
@@ -59,7 +60,7 @@ Para compilar o programa, deve-se entrar no diretório raíz e executar o comand
 
 Para a execução, deve-se utilizar o comando `cargo run <diretório>` dentro da pasta raíz, onde <diretório> é onde se deseja executar o FS. `run` é o comando que executa o programa se utilizando dos arquivos gerados na pasta target.
 
-###  Funcionamento do programa
+####  Funcionamento do programa
 
 A primeira vez que o programa for rodado, ele iniciará todos os processos para criação do `.inode.risos` e `.disco.risos`, alocará a memória necessária e rodará automaticamente algumas funções do FS.
 
@@ -144,3 +145,10 @@ fusermount -u <directory>
 - O número máximo de arquivos que podem existir no disco virtual é 1024.
 - Não é possível criar links simbólicos
 - Se o Filesystem for interrompido de maneira inesperada, os dados não são salvos. Apenas é salvo quando dado o unmount apropriado.
+- Não é possível remover diretórios
+- Se o Filesystem for interrompido de maneira inesperada, os dados não são salvos. Apenas é salvo quando dado o unmount apropriado.
+
+### Biliografia
+[1]: [24 Days of Rust](https://zsiciarz.github.io/24daysofrust/)
+[2]: [The Rust Programming Language Book](https://doc.rust-lang.org/stable/book/title-page.html)
+[3]: [serde](https://serde.rs/)
